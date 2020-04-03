@@ -266,7 +266,7 @@ class TrainPipeline(object):
 
     def run(self):
         try:
-            self.collect_selfplay_data(100)
+            self.collect_selfplay_data(2)
             count = 0
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)    # collect_s

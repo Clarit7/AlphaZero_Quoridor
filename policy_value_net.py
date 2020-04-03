@@ -76,7 +76,7 @@ class policy_value_net(nn.Module):
         self.conv3 = nn.Conv2d(planes, 2, kernel_size=3, stride=stride,
                                padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(2)
-        self.fc3 = nn.Linear(BOARD_SIZE ** 2 * 2, (BOARD_SIZE - 1) ** 2 * 2 + (8 + (WALL_NUM + 1)*2))
+        self.fc3 = nn.Linear(BOARD_SIZE ** 2 * 2, (BOARD_SIZE - 1) ** 2 * 2 + 12)
 
 
     def forward(self,x):
