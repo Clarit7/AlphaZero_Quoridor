@@ -31,11 +31,13 @@ class TreeNode(object):
         parent_node = None
         parent_state = None
 
-        #zip_length = 0
-        #action_priors = list(action_priors)
-        #noise_prob = np.random.dirichlet(0.3 * np.ones(len(action_priors)))
+        action_priors = list(action_priors)
+        action, prob = zip(*action_priors)
+        prob = np.asarray(prob)
+        noise = np.random.dirichlet(0.3 * np.ones(len(action_priors)))
+        prob = prob * 0.8 + noise * 0.2
 
-        for action, prob in action_priors:
+        for i in range(len(action_priors)):
             """
             if action < 12:
 
@@ -67,8 +69,8 @@ class TreeNode(object):
             if not duplicated_node and action not in self._children:
                 self._children[action] = TreeNode(self, prob, next_state, action)
             """
-            if action not in self._children:
-                self._children[action] = TreeNode(self, prob, None, action)
+            if action[i] not in self._children:
+                self._children[action[i]] = TreeNode(self, prob[i], None, action[i])
 
     def select(self, c_puct):
         """
@@ -225,7 +227,6 @@ class MCTSPlayer(object):
 
             if self._is_selfplay:
                 # probs = 0.8 * probs + 0.2 * np.random.dirichlet(0.3 * np.ones(len(probs)))
-
                 # move = acts[np.argmax(probs)]
                 move = np.random.choice(acts, p=probs)
                 self.mcts.update_with_move(move, state)  # 更新根节点，并且复用子树

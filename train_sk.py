@@ -34,7 +34,7 @@ class TrainPipeline(object):
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_batch_size = 1
         self.kl_targ = 0.02
-        self.check_freq = 5
+        self.check_freq = 10
         self.game_batch_num = 1000
         self.best_win_ratio = 0.0
         self.pure_mcts_playout_num = 1000
@@ -266,7 +266,7 @@ class TrainPipeline(object):
 
     def run(self):
         try:
-            self.collect_selfplay_data(2)
+            self.collect_selfplay_data(100)
             count = 0
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)    # collect_s
