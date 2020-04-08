@@ -64,7 +64,7 @@ def main():
 
 
     if args.player_type == 1:
-        player_types = {1: 'human', 2: 'computer'}
+        player_types = {1: 'human', 2: 'human'}
         players = {1: human1, 2: human2}
         if args.computer_type == 0:
             pass
@@ -78,9 +78,6 @@ def main():
             players = {1: human1, 2: randomMove}
         elif args.computer_type == 0:
             print("Set computer type to 1 or 2 for choosing computer!")
-    elif args.player_type == 3:
-        player_types = {1: 'alphazero', 2: 'mctspure'}
-        players = {1: MCTS_Alpha, 2: MCTS_Pure}
             # pygame.quit()
 
     # game.load(player1, player2)
