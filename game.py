@@ -26,8 +26,8 @@ DARKBLUE = (0, 0, 128)
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = SCREEN_WIDTH - 200
 
-TILE_WIDTH = SCREEN_HEIGHT / 5.8
-TILE_HEIGHT = SCREEN_HEIGHT / 5.8
+TILE_WIDTH = SCREEN_HEIGHT / 8.8
+TILE_HEIGHT = SCREEN_HEIGHT / 8.8
 
 WALL_WIDTH = 0.2 * TILE_WIDTH
 WALL_HEIGHT = TILE_WIDTH * 2 + WALL_WIDTH
@@ -56,7 +56,7 @@ def main():
     game = Quoridor()
     human1 = ManualPygameAgent('Kurumi')
     human2 = ManualPygameAgent('Cryer')
-    MCTS_Alpha = A_Player(PolicyValueNet(None).policy_value_fn, c_puct=5, n_playout=400, is_selfplay=0)
+    MCTS_Alpha = A_Player(PolicyValueNet('model_b_71_1.070_2020-04-07').policy_value_fn, c_puct=5, n_playout=400, is_selfplay=0)
     MCTS_Pure = B_Player(c_puct=5, n_playout=50)  #
 
     random = RandomAgent()
@@ -64,7 +64,7 @@ def main():
 
 
     if args.player_type == 1:
-        player_types = {1: 'human', 2: 'human'}
+        player_types = {1: 'human', 2: 'computer'}
         players = {1: human1, 2: human2}
         if args.computer_type == 0:
             pass
@@ -78,6 +78,9 @@ def main():
             players = {1: human1, 2: randomMove}
         elif args.computer_type == 0:
             print("Set computer type to 1 or 2 for choosing computer!")
+    elif args.player_type == 3:
+        player_types = {1: 'alphazero', 2: 'mctspure'}
+        players = {1: MCTS_Alpha, 2: MCTS_Pure}
             # pygame.quit()
 
     # game.load(player1, player2)

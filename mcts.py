@@ -26,18 +26,19 @@ class TreeNode(object):
         self._action = action
         # self._game = game
 
-    def expand(self, action_priors, game):
+    def expand(self, action_priors, is_selfplay):
         duplicated_node = False
         parent_node = None
         parent_state = None
 
-        action_priors = list(action_priors)
-        action, prob = zip(*action_priors)
-        prob = np.asarray(prob)
-        noise = np.random.dirichlet(0.3 * np.ones(len(action_priors)))
-        prob = prob * 0.8 + noise * 0.2
 
-        for i in range(len(action_priors)):
+        action_priors = list(action_priors)
+        #action, prob = zip(*action_priors)
+        #prob = np.asarray(prob)
+        noise = np.random.dirichlet(0.3 * np.ones(len(action_priors)))
+        #prob = prob * 0.8 + noise * 0.2
+
+        for i, (action, prob) in enumerate(action_priors):
             """
             if action < 12:
 
@@ -69,8 +70,12 @@ class TreeNode(object):
             if not duplicated_node and action not in self._children:
                 self._children[action] = TreeNode(self, prob, next_state, action)
             """
-            if action[i] not in self._children:
-                self._children[action[i]] = TreeNode(self, prob[i], None, action[i])
+
+            if self._parent is None:
+                prob = 0.8 * prob + 0.2 * noise[i]
+
+            if action not in self._children:
+                self._children[action] = TreeNode(self, prob, None, action)
 
     def select(self, c_puct):
         """
@@ -127,7 +132,7 @@ class MCTS(object):
         self._n_playout = n_playout
 
     # Fix : get current_player param info when the first simulation started.
-    def _playout(self, game, current_player):
+    def _playout(self, game, is_selfplay):
         """
         """
         node = self._root
@@ -150,22 +155,21 @@ class MCTS(object):
                 leaf_value = -1.0 if game.get_current_player == current_player else 1.0
             else:
             """
-            node.expand(action_probs, game)
+            node.expand(action_probs, is_selfplay)
         else:
             leaf_value = 1.0 if winner == game.get_current_player() else -1.0  # Fix bug that all winners are current player
-            # print(leaf_value)
         # print("call update")
 
         node.update_recursive(-leaf_value)
 
-    def get_move_probs(self, game, temp=1e-3, time_step=0):
+    def get_move_probs(self, game, temp=1e-3, time_step=0, is_selfplay=0):
         """
         """
         for n in range(self._n_playout):
             game_copy = copy.deepcopy(game)
             # state = game.state()
             # state_copy = copy.deepcopy(state)
-            self._playout(game_copy, game_copy.get_current_player())
+            self._playout(game_copy, is_selfplay)
 
         act_visits = [(act, node._n_visits) for act, node in self._root._children.items()]
         acts, visits = zip(*act_visits)
@@ -221,7 +225,7 @@ class MCTSPlayer(object):
         move_probs = np.zeros(12 + (BOARD_SIZE - 1) ** 2 * 2)  # 获取落子的概率，由神经网络输出
 
         if len(sensible_moves) > 0:  # 棋盘未耗尽时
-            acts, probs = self.mcts.get_move_probs(game, temp, time_step)  # 获取落子以及对应的落子概率
+            acts, probs = self.mcts.get_move_probs(game, temp, time_step, self._is_selfplay)  # 获取落子以及对应的落子概率
             move_probs[list(acts)] = probs  # 将概率转到move_probs列表中
             state = game.state()
 

@@ -181,7 +181,6 @@ class PolicyValueNet(object):
 
         # 
         log_act_probs, value = self.policy_value_net(state_batch)
-        6
         value_loss = F.mse_loss(value.view(-1), winner_batch)
 
         # print(mcts_probs.shape, log_act_probs.shape)

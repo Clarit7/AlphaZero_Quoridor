@@ -119,7 +119,7 @@ class TrainPipeline(object):
             cur_player = (np.ones((BOARD_SIZE, BOARD_SIZE)) - state[5 + 2* (WALL_NUM+1),:,:]).reshape(-1,BOARD_SIZE, BOARD_SIZE)
 
             v_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[5+(WALL_NUM+1):5 + 2*(WALL_NUM+1), :,:], state[5:5+(WALL_NUM+1),:,:], cur_player, dist_state2, dist_state1])
-
+            # v_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[5:(5 + (WALL_NUM+1) * 2), :, :], cur_player, state[:(6 + (WALL_NUM + 1) * 2), :, :]])
 
 
             v_equi_mcts_prob = np.copy(mcts_prob)
@@ -164,6 +164,7 @@ class TrainPipeline(object):
             cur_player = (np.ones((BOARD_SIZE, BOARD_SIZE)) - state[5 + 2*(WALL_NUM+1),:,:]).reshape(-1,BOARD_SIZE, BOARD_SIZE)
 
             hv_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[5 + (WALL_NUM+1):5 + 2*(WALL_NUM+1), :,:], state[5:5+(WALL_NUM+1),:,:], cur_player, dist_state2, dist_state1])
+            # hv_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[5:(5 + (WALL_NUM+1) * 2), :, :], cur_player, state[(6 + (WALL_NUM + 1) * 2):, :, :]])
 
             hv_equi_mcts_prob = np.copy(mcts_prob)
 
@@ -205,7 +206,6 @@ class TrainPipeline(object):
 
             play_data = self.get_equi_data(play_data)
 
-
             self.data_buffer.extend(play_data)
             print("{}th game finished. Current episode length: {}, Length of data buffer: {}".format(i, self.episode_len, len(self.data_buffer)))
 
@@ -216,8 +216,6 @@ class TrainPipeline(object):
         valloss_acc = 0
         polloss_acc = 0
         entropy_acc = 0
-
-
 
         for i in range(NUM_EPOCHS):
 
@@ -242,9 +240,8 @@ class TrainPipeline(object):
 
                 writer.add_scalar("Val Loss/train", valloss.item(), iter_count)
                 writer.add_scalar("Policy Loss/train", polloss.item(), iter_count)
-                writer.add_scalar("Entory/train", entropy, iter_count)
+                writer.add_scalar("Entropy/train", entropy, iter_count)
                 writer.add_scalar("LR Multiplier", self.lr_multiplier, iter_count)
-
 
                 iter_count += 1
 
@@ -266,7 +263,7 @@ class TrainPipeline(object):
 
     def run(self):
         try:
-            self.collect_selfplay_data(100)
+            self.collect_selfplay_data(3)
             count = 0
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)    # collect_s
@@ -284,7 +281,7 @@ class TrainPipeline(object):
                     print("current self-play batch: {}".format(i + 1))
                     # win_ratio = self.policy_evaluate()
                     # Add generation to filename
-                    self.policy_value_net.save_model('model_a_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss) + str(time.strftime('%Y-%m-%d', time.localtime(time.time())))))
+                    self.policy_value_net.save_model('model_7x7_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss) + str(time.strftime('%Y-%m-%d', time.localtime(time.time())))))
         except KeyboardInterrupt:
             print('\n\rquit')
 
