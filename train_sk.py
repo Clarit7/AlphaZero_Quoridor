@@ -29,7 +29,6 @@ class TrainPipeline(object):
         self.learn_rate = 2e-3
         self.lr_multiplier = 1.0
         self.temp = 1.0
-        self.n_playout = 400
         self.c_puct = 5
         self.buffer_size = 10000
         self.data_buffer = deque(maxlen=self.buffer_size)
@@ -38,8 +37,7 @@ class TrainPipeline(object):
         self.check_freq = 5
         self.game_batch_num = 2000
         self.best_win_ratio = 0.0
-        self.pure_mcts_playout_num = 400
-        self.start_time = str(time.strftime('%Y-%m-%d', time.localtime(time.time())))
+        self.start_time = str(time.strftime('%m-%d-%h-%H-%M', time.localtime(time.time())))
 
 
         self.old_probs = 0
@@ -53,7 +51,7 @@ class TrainPipeline(object):
             self.policy_value_net = PolicyValueNet()
 
         self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
-                                      n_playout=self.n_playout, is_selfplay=True)
+                                      n_playout=N_PLAYOUT, is_selfplay=True)
 
     def get_equi_data(self, play_data):
 
@@ -244,69 +242,50 @@ class TrainPipeline(object):
 
     def policy_update(self):
 
-        dataloader = DataLoader(self.data_buffer, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True)
+        #dataloader = DataLoader(self.data_buffer, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True)
+
+        mini_batch = random.sample(self.data_buffer, BATCH_SIZE)
+        state = [data[0] for data in mini_batch]
+        mcts_prob = [data[1] for data in mini_batch]
+        winner = [data[2] for data in mini_batch]
+
+        old_probs, old_v = self.policy_value_net.policy_value(state)
 
         for i in range(NUM_EPOCHS):
+            valloss, polloss, entropy = self.policy_value_net.train_step(state, mcts_prob, winner, self.learn_rate * self.lr_multiplier)
+            self.new_probs, new_v = self.policy_value_net.policy_value(state)
 
-            valloss_acc = 0
-            polloss_acc = 0
-            entropy_acc = 0
+            global iter_count
 
+            iter_count += 1
 
-            self.old_probs = self.new_probs
-
-            if self.first_trained:
-                kl = np.mean(np.sum(self.old_probs * (np.log(self.old_probs + 1e-10) - np.log(self.new_probs + 1e-10)), axis=1))
-                if kl > self.kl_targ * 4:
-                    break
-
-                if kl > self.kl_targ * 2 and self.lr_multiplier > 0.1:
-                    self.lr_multiplier /= 1.5
-                elif kl < self.kl_targ / 2 and self.lr_multiplier < 10:
-                    self.lr_multiplier *= 1.5
+            kl = np.mean(np.sum(old_probs * (np.log(old_probs + 1e-10) - np.log(self.new_probs + 1e-10)), axis=1))
+            if kl > self.kl_targ * 4:
+                break
 
 
-            for i, (state, mcts_prob, winner) in enumerate(dataloader):
-                valloss, polloss, entropy = self.policy_value_net.train_step(state, mcts_prob, winner, self.learn_rate * self.lr_multiplier)
-                self.new_probs, new_v = self.policy_value_net.policy_value(state)
-
-                global iter_count
-
-
-                iter_count += 1
-
-                valloss_acc += valloss.item()
-                polloss_acc += polloss.item()
-                entropy_acc += entropy.item()
-
-            self.first_trained = True
+        if kl > self.kl_targ * 2 and self.lr_multiplier > 0.1:
+            self.lr_multiplier /= 1.5
+        elif kl < self.kl_targ / 2 and self.lr_multiplier < 10:
+            self.lr_multiplier *= 1.5
 
 
-            writer.add_scalar("Val Loss/train", valloss_acc / len(dataloader), iter_count)
-            writer.add_scalar("Policy Loss/train", polloss_acc / len(dataloader), iter_count)
-            writer.add_scalar("Entropy/train", entropy_acc / len(dataloader), iter_count)
-            writer.add_scalar("LR Multiplier", self.lr_multiplier, iter_count)
-            writer.add_scalar("Total Loss/train", (valloss_acc + polloss_acc) / len(dataloader), iter_count)
+        writer.add_scalar("Val Loss/train", valloss.item(), iter_count)
+        writer.add_scalar("Policy Loss/train", polloss.item(), iter_count)
+        writer.add_scalar("Entropy/train", entropy.item(), iter_count)
+        writer.add_scalar("LR Multiplier", self.lr_multiplier, iter_count)
+        writer.add_scalar("Total Loss/train", (valloss.item() + polloss.item()), iter_count)
 
 
-
-        valloss_mean = valloss_acc / (len(dataloader) * NUM_EPOCHS)
-        polloss_mean = polloss_acc / (len(dataloader) * NUM_EPOCHS)
-        entropy_mean = entropy_acc / (len(dataloader) * NUM_EPOCHS)
-
-        #explained_var_old = 1 - np.var(np.array(winner_batch) - old_v.flatten()) / np.var(np.array(winner_batch))
-        #explained_var_new = 1 - np.var(np.array(winner_batch) - new_v.flatten()) / np.var(np.array(winner_batch))
-        #print( "kl:{:.5f}, lr_multiplier:{:.3f}, value loss:{}, policy loss:[], entropy:{}".format(
-        #        kl, self.lr_multiplier, valloss, polloss, entropy, explained_var_old, explained_var_new))
-        return valloss_mean, polloss_mean, entropy_mean
+        return valloss.item(), polloss.item(), entropy.item()
 
 
 
     def policy_evaluate(self, n_games=10):
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
-                                      n_playout=self.n_playout, is_selfplay=False)
+                                      n_playout=N_PLAYOUT, is_selfplay=False)
 
-        pure_mcts_player = MCTSPure(c_puct=self.c_puct, n_playout=self.pure_mcts_playout_num)
+        pure_mcts_player = MCTSPure(c_puct=self.c_puct, n_playout=N_MCTS_PLAYOUT)
 
         win_cnt = defaultdict(int)
         for i in range(n_games):
@@ -315,7 +294,7 @@ class TrainPipeline(object):
             print("{}th evaluation game finished and won {} games out of {} games".format(i, win_cnt[1], n_games))
 
         win_ratio = 1.0 * (win_cnt[1] + 0.5*win_cnt[-1]) / n_games
-        print("num_playouts:{}, win: {}, lose: {}, tie: {}".format(self.pure_mcts_playout_num, win_cnt[1], win_cnt[2], win_cnt[-1]))
+        print("num_playouts:{}, win: {}, lose: {}, tie: {}".format(N_MCTS_PLAYOUT, win_cnt[1], win_cnt[2], win_cnt[-1]))
         return win_ratio
 
 
@@ -325,7 +304,7 @@ class TrainPipeline(object):
             # win_ratio = self.policy_evaluate(n_games=1)
 
 
-            self.collect_selfplay_data(50)
+            self.collect_selfplay_data(10)
             count = 0
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)    # collect_s
@@ -339,10 +318,10 @@ class TrainPipeline(object):
                     print("current self-play batch: {}".format(i + 1))
                     # win_ratio = self.policy_evaluate()
                     # Add generation to filename
-                    win_ratio = self.policy_evaluate()
+                    win_ratio = self.policy_evaluate(n_games=5)
                     writer.add_scalar("Win Ratio against pure MCTS", win_ratio, i)
 
-                    self.policy_value_net.save_model('model_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss) + str(time.strftime('%Y-%m-%d', time.localtime(time.time())))))
+                    self.policy_value_net.save_model('model_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss)) + "_BOARD_SIZE_" + str(BOARD_SIZE) + "_start_time_" + self.start_time )
         except KeyboardInterrupt:
             print('\n\rquit')
 

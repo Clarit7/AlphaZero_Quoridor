@@ -19,7 +19,7 @@ def conv3x3(in_planes, out_planes, stride=1):
 
 def conv5x5(in_planes, out_planes, stride=1):
     """5x5 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=5, stride=stride,
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
 
 
@@ -57,33 +57,38 @@ class BasicBlock(nn.Module):
 class policy_value_net(nn.Module):
     def __init__(self, block, inplanes, planes, stride=1):
         super(policy_value_net, self).__init__()
-        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=5, stride=stride,
-                               padding=1, bias=False)
+
+        self.conv1 = conv5x5(inplanes, planes, stride)
+
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
 
         blocks = []
 
-        dim = planes
 
         for i in range(NUM_BLOCK):
-            blocks.append(block(dim, dim))
+            blocks.append(block(planes, planes))
 
         self.layers = nn.Sequential(*blocks)
 
+        val_dim = 2
+        pol_dim = 4
+
         # value head
-        self.conv2 = nn.Conv2d(dim, 2, kernel_size=5, stride=stride,
-                               padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(2)
-        self.fc1 = nn.Linear(BOARD_SIZE ** 2 * 2, BOARD_SIZE ** 2)
+
+        self.conv2 = conv5x5(planes, val_dim, stride)
+
+        self.bn2 = nn.BatchNorm2d(val_dim)
+        self.fc1 = nn.Linear(BOARD_SIZE ** 2 * val_dim, BOARD_SIZE ** 2)
         self.fc2 = nn.Linear(BOARD_SIZE ** 2, 1)
 
 
         # policy head
-        self.conv3 = nn.Conv2d(dim, 2, kernel_size=5, stride=stride,
-                               padding=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(2)
-        self.fc3 = nn.Linear(BOARD_SIZE ** 2 * 2, (BOARD_SIZE - 1) ** 2 * 2 + 12)
+
+        self.conv3 = conv5x5(planes, pol_dim)
+
+        self.bn3 = nn.BatchNorm2d(pol_dim)
+        self.fc3 = nn.Linear(BOARD_SIZE ** 2 * pol_dim, (BOARD_SIZE - 1) ** 2 * 2 + 12)
 
 
     def forward(self,x):
@@ -131,8 +136,8 @@ class PolicyValueNet(object):
         """
         if self.use_gpu:
             # device = torch.device("cuda:0")
-            state_batch = Variable(torch.FloatTensor(state_batch.float()).cuda())
-            log_act_probs, value = self.policy_value_net(state_batch.float())
+            state_batch = Variable(torch.FloatTensor(state_batch).cuda())
+            log_act_probs, value = self.policy_value_net(state_batch)
             act_probs = np.exp(log_act_probs.data.cpu().numpy())
             return act_probs, value.data.cpu().numpy()
         else:
@@ -149,6 +154,7 @@ class PolicyValueNet(object):
         current_state = np.ascontiguousarray(game.state()).reshape([1, 10 * HISTORY_LEN, BOARD_SIZE, BOARD_SIZE])
         if self.use_gpu:
             # device = torch.device("cuda:0")
+
             log_act_probs, value = self.policy_value_net(Variable(torch.from_numpy(current_state)).cuda().float())
             act_probs = np.exp(log_act_probs.data.cpu().numpy().flatten())
         else:
@@ -165,9 +171,9 @@ class PolicyValueNet(object):
     def train_step(self, state_batch, mcts_probs, winner_batch, lr):
         if self.use_gpu:
             # device = torch.device("cuda:0")
-            state_batch = Variable(torch.FloatTensor(state_batch.float()).cuda())
-            mcts_probs = Variable(torch.FloatTensor(mcts_probs.float()).cuda())
-            winner_batch = Variable(torch.FloatTensor(winner_batch.float()).cuda())
+            state_batch = Variable(torch.FloatTensor(state_batch).cuda())
+            mcts_probs = Variable(torch.FloatTensor(mcts_probs).cuda())
+            winner_batch = Variable(torch.FloatTensor(winner_batch).cuda())
         else:
             # device = torch.device("cpu")
             state_batch = Variable(torch.FloatTensor(state_batch))

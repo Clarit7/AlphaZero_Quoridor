@@ -163,7 +163,7 @@ class MCTS(object):
 
         node.update_recursive(-leaf_value)
 
-    def get_move_probs(self, game, temp=1e-3, time_step=0):
+    def get_move_probs(self, game, temp=1, time_step=0):
         """
         """
         for n in range(self._n_playout):
@@ -221,7 +221,7 @@ class MCTSPlayer(object):
         self.mcts.update_with_move(-1, None)
 
     # Choose an action during the play
-    def choose_action(self, game, temp=1e-3, return_prob=0, time_step=0):
+    def choose_action(self, game, temp=1e-3, return_prob=True, time_step=0):
         sensible_moves = game.actions()
         move_probs = np.zeros(12 + (BOARD_SIZE - 1) ** 2 * 2)
         q_vals = np.zeros(12 + (BOARD_SIZE - 1) ** 2 * 2)
@@ -240,7 +240,6 @@ class MCTSPlayer(object):
                 move = np.random.choice(acts, p=probs)
                 self.mcts.update_with_move(move, state)
             else:
-                print(probs)
                 move = acts[np.argmax(probs)]
                 # move = np.random.choice(acts, p=probs)
                 self.mcts.update_with_move(-1, state)

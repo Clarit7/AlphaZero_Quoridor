@@ -222,17 +222,21 @@ class Quoridor(object):
 
 
         if (self._player_walls_remaining[self.current_player] > 0):
-            wall_actions = self._valid_wall_actions()  #
+            wall_actions = self._valid_wall_actions()
 
-            #
             wall_actions = [action + 12 for action in wall_actions]
         else:
             wall_actions = []
 
-        if len(wall_actions + new_pawn_actions) != 0:
-            pawn_actions = new_pawn_actions
 
-        return pawn_actions + wall_actions
+        if self._player_waste_move[player] <= 0:
+            if len(wall_actions + new_pawn_actions) == 0:
+                print("No available actions...")
+                exit(0)
+
+            return wall_actions + new_pawn_actions
+        else:
+            return wall_actions + pawn_actions
 
     def step(self, action):
         """Take a step in the environment given the current action"""
@@ -997,8 +1001,7 @@ class Quoridor(object):
 
             tic = time.time()
             if self.current_player == 1:
-                move, move_probs, q_vals = alpha_player.choose_action(self, temp=temp, return_prob=1,
-                                                              time_step=time_step)
+                move, move_probs, q_vals = alpha_player.choose_action(self)
 
                 print("turn %s" % time_step)
                 print('[Move probs]\n', move_probs[:12])

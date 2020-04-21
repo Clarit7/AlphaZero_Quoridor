@@ -11,17 +11,19 @@ class TestTrainedAgent(object):
     def __init__(self, init_model=None, first_player=1):
         self.game = Quoridor()
         self.temp = 1.0
-        self.c_puct = 1
+        self.c_puct = 5
         self.play_batch_size = 1
-        self.alpha_playout = 200
-        self.pure_playout = 200
+        self.alpha_playout = 100
+        self.pure_playout = 100
         self.first = first_player
 
         self.alpha_player = A_Player(PolicyValueNet(model_file=init_model).policy_value_fn, c_puct=self.c_puct,
                                      n_playout=self.alpha_playout, is_selfplay=False)
 
 
-        self.pure_player = B_Player(c_puct=self.c_puct, n_playout=self.pure_playout)  #
+        #self.alpha_player = B_Player(c_puct=1, n_playout=self.alpha_playout)
+
+        self.pure_player = B_Player(c_puct=5, n_playout=self.pure_playout)
         self.alpha_win_total = 0
         self.alpha_win_first = 0
         self.alpha_draw_total = 0
@@ -56,12 +58,12 @@ class TestTrainedAgent(object):
                 print("{}th/{} game finished. Draw".format((i + 1), n_games))
             else:
                 print("{}th/{} game finished. Winner is pure mcts player".format((i + 1), n_games))
-            print("alpha zero win rate in first start : {:.2%}".format(self.alpha_win_first / (i + 1)))
-            print("alpha zero win rate in second start : {:.2%}".format((self.alpha_win_total - self.alpha_win_first) / (i + 1)))
+            print("alpha zero win rate in first start : {:.2%}".format(self.alpha_win_first / (i//2 + 1)))
+            print("alpha zero win rate in second start : {:.2%}".format((self.alpha_win_total - self.alpha_win_first) / ((i+1) - (i//2 +1 ) + 1e-10)))
             print("alpha zero win rate total : {:.2%}".format(self.alpha_win_total / (i + 1)))
-            print("alpha zero draw rate in first start : {:.2%}".format(self.alpha_draw_first / (i + 1)))
+            print("alpha zero draw rate in first start : {:.2%}".format(self.alpha_draw_first / (i//2 + 1)))
             print("alpha zero draw rate in second start : {:.2%}".format(
-                (self.alpha_draw_total - self.alpha_draw_first) / (i + 1)))
+                (self.alpha_draw_total - self.alpha_draw_first) / ((i+1) - (i//2 + 1) + 1e-10)))
             print("alpha zero draw rate total : {:.2%}".format(self.alpha_draw_total / (i + 1)))
 
     def run(self, epoch_num):
@@ -74,5 +76,5 @@ class TestTrainedAgent(object):
 if __name__ == '__main__':
     # init_model : alpha zero model file name
     # first_player : 1 - alpha zero, 2 - pure mcts, 3 - change first player when every game finish
-    test_trained_agent = TestTrainedAgent(init_model="model_a_32_1.920_2020-04-13", first_player=3)
+    test_trained_agent = TestTrainedAgent(init_model="model_342_0.407__BOARD_SIZE_5_start_time_2020-04-18", first_player=3)
     test_trained_agent.run(100)
