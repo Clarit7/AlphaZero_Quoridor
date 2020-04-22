@@ -205,8 +205,8 @@ class Quoridor(object):
 
         opponent = 1 if player == 2 else 2
         opponent_loc = self._positions[opponent]
-        walls = self._intersections  #
-        #
+        walls = self._intersections
+
         pawn_actions = self._valid_pawn_actions(location=location,
                                                 opponent_loc=opponent_loc, walls=walls, player=player)
 
@@ -231,8 +231,7 @@ class Quoridor(object):
 
         if self._player_waste_move[player] <= 0:
             if len(wall_actions + new_pawn_actions) == 0:
-                print("No available actions...")
-                exit(0)
+                return wall_actions + pawn_actions
 
             return wall_actions + new_pawn_actions
         else:
@@ -243,7 +242,7 @@ class Quoridor(object):
         # self._logger.info("Player {player} chooses action {action}".format(player=self.current_player, action=action))
         player = self.current_player
         done = False
-        #
+
         self.valid_actions = self.actions()
 
         if self.safe:
@@ -896,6 +895,9 @@ class Quoridor(object):
 
             print(render_row)
 
+
+
+        print("Player 1 position: ", self._positions[1], "Player 2 position: ", self._positions[2])
         """
         # Original print board code
 

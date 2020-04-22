@@ -76,5 +76,5 @@ class TestTrainedAgent(object):
 if __name__ == '__main__':
     # init_model : alpha zero model file name
     # first_player : 1 - alpha zero, 2 - pure mcts, 3 - change first player when every game finish
-    test_trained_agent = TestTrainedAgent(init_model="model_342_0.407__BOARD_SIZE_5_start_time_2020-04-18", first_player=3)
+    test_trained_agent = TestTrainedAgent(init_model="model_36_3.078__BOARD_SIZE_7_start_time_04-21-Apr-14-51", first_player=3)
     test_trained_agent.run(100)
