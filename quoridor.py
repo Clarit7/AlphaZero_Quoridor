@@ -1003,7 +1003,7 @@ class Quoridor(object):
 
             tic = time.time()
             if self.current_player == 1:
-                move, move_probs, q_vals = alpha_player.choose_action(self)
+                move, move_probs, q_vals = alpha_player.choose_action(self, return_prob=1)
 
                 print("turn %s" % time_step)
                 print('[Move probs]\n', move_probs[:12])
