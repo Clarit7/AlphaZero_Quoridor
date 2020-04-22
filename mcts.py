@@ -208,9 +208,20 @@ class MCTS(object):
 
 class MCTSPlayer(object):
     #
-    def __init__(self, policy_value_function, c_puct=5, n_playout=2000, is_selfplay=1):
+    def __init__(self, policy_value_function, c_puct=5, n_playout=2000, is_selfplay=1, test_condition=False):
         self.mcts = MCTS(policy_value_function, c_puct, n_playout, is_selfplay)
         self._is_selfplay = is_selfplay
+        self._test_condition = test_condition
+        self._scenario = 0
+        self._move70p = False
+        self._activate_dirichlet = True
+        self._random_choose = True
+
+        if is_selfplay and np.random.randint(10) < 3:
+            self._activate_dirichlet = False
+
+        if is_selfplay and np.random.randint(10) < 3:
+            self._random_choose = False
 
     #
     def set_player_ind(self, p):
@@ -221,7 +232,7 @@ class MCTSPlayer(object):
         self.mcts.update_with_move(-1, None)
 
     # Choose an action during the play
-    def choose_action(self, game, temp=1e-3, return_prob=True, time_step=0):
+    def choose_action(self, game, temp=1e-3, return_prob=0, time_step=0):
         sensible_moves = game.actions()
         move_probs = np.zeros(12 + (BOARD_SIZE - 1) ** 2 * 2)
         q_vals = np.zeros(12 + (BOARD_SIZE - 1) ** 2 * 2)
@@ -234,12 +245,16 @@ class MCTSPlayer(object):
             state = game.state()
 
             if self._is_selfplay:
-                probs = 0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
-                # print(probs)
-                # move = acts[np.argmax(probs)]
-                move = np.random.choice(acts, p=probs)
+                if self._test_condition:
+                    move = self.test_action_choose(acts, probs, time_step)
+                else:
+                    probs = 0.8 * probs + 0.2 * np.random.dirichlet(0.3 * np.ones(len(probs)))
+                    # move = acts[np.argmax(probs)]
+                    move = np.random.choice(acts, p=probs)
+
                 self.mcts.update_with_move(move, state)
             else:
+                print(probs)
                 move = acts[np.argmax(probs)]
                 # move = np.random.choice(acts, p=probs)
                 self.mcts.update_with_move(-1, state)
@@ -250,6 +265,86 @@ class MCTSPlayer(object):
                 return move
         else:
             print("WARNING: the board is full")
+
+    def test_action_choose(self, acts, probs, time_step):
+        if self._activate_dirichlet:
+            probs = 0.8 * probs + 0.2 * np.random.dirichlet(0.3 * np.ones(len(probs)))
+
+        # choose force move in early game to prevent overfitting
+        if time_step == 1:
+            self._scenario = np.random.randint(6)
+            self._move70p = np.random.randint(10)
+
+            print("================== Current Game Random Setting Info ===================")
+            if self._scenario < 2:
+                print("Each player move forward in first step (33.3%)")
+            elif self._scenario == 2:
+                print("Player 1 move forward in first step scenario (16.7%)")
+            elif self._scenario == 3:
+                print("Player 2 move forward in first step (16.7%)")
+            else:
+                print("Free move scenario (33.3%)")
+
+            if self._move70p < 3:
+                print("70% prob to choose pawn move (30%)")
+            else:
+                print("Normal move (70%)")
+
+            if self._activate_dirichlet:
+                print("Activate dirichlet noise (70%)")
+            else:
+                print("Deactivate dirichlet noise (30%)")
+
+            if self._random_choose:
+                print("Choose random move based on the move probability (70%)")
+            else:
+                print("Choose argmax move based on the move probability (30%)")
+
+            print("=======================================================================")
+
+        if self._scenario < 2 and time_step < 3:  # each player move forward in first step scenario
+            if time_step == 1:
+                move = 0
+            else:
+                move = 1
+        elif self._scenario == 2 and time_step == 1:  # p1 move forward in first step scenario
+            move = 0
+        elif self._scenario == 3 and time_step == 2 and 1 in acts:  # p2 move forward in first step scenario
+            move = 1
+        else:
+            if self._move70p < 3:  # choose pawn move in 70% prob case
+                wall_remain = False
+                for i, v in enumerate(acts):
+                    if v > 11:
+                        if np.random.randint(10) < 7:
+                            pawn_acts = acts[:i]
+                            pawn_probs = softmax(probs[:i])
+                            if self._random_choose:  # random choose case
+                                move = np.random.choice(pawn_acts, p=softmax(pawn_probs))
+                            else:  # max prob choose case
+                                move = pawn_acts[np.argmax(pawn_probs)]
+                        else:
+                            wall_acts = acts[i:]
+                            wall_probs = softmax(probs[i:])
+                            if self._random_choose:  # random choose case
+                                move = np.random.choice(wall_acts, p=softmax(wall_probs))
+                            else:  # max prob choose case
+                                move = wall_acts[np.argmax(wall_probs)]
+                        wall_remain = True
+                        break
+
+                if not wall_remain:  # if no wall remains, choose action normally(= choose pawn move)
+                    if self._random_choose:  # random choose case
+                        move = np.random.choice(acts, p=probs)
+                    else:  # max prob choose case
+                        move = acts[np.argmax(probs)]
+            else:  # choose action normally
+                if self._random_choose:  # random choose case
+                    move = np.random.choice(acts, p=probs)
+                else:  # max prob choose case
+                    move = acts[np.argmax(probs)]
+
+        return move
 
     def __str__(self):
         return "MCTS {}".format(self.player)

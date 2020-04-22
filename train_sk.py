@@ -51,7 +51,7 @@ class TrainPipeline(object):
             self.policy_value_net = PolicyValueNet()
 
         self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
-                                      n_playout=N_PLAYOUT, is_selfplay=True)
+                                      n_playout=N_PLAYOUT, is_selfplay=True, test_condition=True)
 
     def get_equi_data(self, play_data):
 
