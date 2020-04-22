@@ -213,15 +213,9 @@ class MCTSPlayer(object):
         self._is_selfplay = is_selfplay
         self._test_condition = test_condition
         self._scenario = 0
-        self._move70p = False
-        self._activate_dirichlet = True
-        self._random_choose = True
-
-        if is_selfplay and np.random.randint(10) < 3:
-            self._activate_dirichlet = False
-
-        if is_selfplay and np.random.randint(10) < 3:
-            self._random_choose = False
+        self._move70p = 0
+        self._activate_dirichlet = 0
+        self._random_choose = 0
 
     #
     def set_player_ind(self, p):
@@ -267,13 +261,13 @@ class MCTSPlayer(object):
             print("WARNING: the board is full")
 
     def test_action_choose(self, acts, probs, time_step):
-        if self._activate_dirichlet:
-            probs = 0.8 * probs + 0.2 * np.random.dirichlet(0.3 * np.ones(len(probs)))
 
         # choose force move in early game to prevent overfitting
         if time_step == 1:
             self._scenario = np.random.randint(6)
             self._move70p = np.random.randint(10)
+            self._activate_dirichlet = np.random.randint(10)
+            self._random_choose = np.random.randint(10)
 
             print("================== Current Game Random Setting Info ===================")
             if self._scenario < 2:
@@ -290,17 +284,20 @@ class MCTSPlayer(object):
             else:
                 print("Normal move (70%)")
 
-            if self._activate_dirichlet:
-                print("Activate dirichlet noise (70%)")
-            else:
+            if self._activate_dirichlet < 3:
                 print("Deactivate dirichlet noise (30%)")
-
-            if self._random_choose:
-                print("Choose random move based on the move probability (70%)")
             else:
+                print("Activate dirichlet noise (70%)")
+
+            if self._random_choose < 3:
                 print("Choose argmax move based on the move probability (30%)")
+            else:
+                print("Choose random move based on the move probability (70%)")
 
             print("=======================================================================")
+
+        if self._activate_dirichlet < 3:
+            probs = 0.8 * probs + 0.2 * np.random.dirichlet(0.3 * np.ones(len(probs)))
 
         if self._scenario < 2 and time_step < 3:  # each player move forward in first step scenario
             if time_step == 1:
@@ -326,7 +323,7 @@ class MCTSPlayer(object):
                         else:
                             wall_acts = acts[i:]
                             wall_probs = softmax(probs[i:])
-                            if self._random_choose:  # random choose case
+                            if self._random_choose < 3:  # random choose case
                                 move = np.random.choice(wall_acts, p=softmax(wall_probs))
                             else:  # max prob choose case
                                 move = wall_acts[np.argmax(wall_probs)]
@@ -334,12 +331,12 @@ class MCTSPlayer(object):
                         break
 
                 if not wall_remain:  # if no wall remains, choose action normally(= choose pawn move)
-                    if self._random_choose:  # random choose case
+                    if self._random_choose < 3:  # random choose case
                         move = np.random.choice(acts, p=probs)
                     else:  # max prob choose case
                         move = acts[np.argmax(probs)]
             else:  # choose action normally
-                if self._random_choose:  # random choose case
+                if self._random_choose < 3:  # random choose case
                     move = np.random.choice(acts, p=probs)
                 else:  # max prob choose case
                     move = acts[np.argmax(probs)]
