@@ -4,6 +4,8 @@ from agents.base import RandomAgent, RandomMoveAgent
 from agents.manual import ManualPygameAgent
 from mcts import MCTSPlayer as A_Player
 from pure_mcts import MCTSPlayer as B_Player
+from minimax import MinimaxPlayer as C_Player
+
 from policy_value_net import PolicyValueNet
 # add
 import numpy as np
@@ -26,8 +28,8 @@ DARKBLUE = (0, 0, 128)
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = SCREEN_WIDTH - 200
 
-TILE_WIDTH = SCREEN_HEIGHT / 5.8
-TILE_HEIGHT = SCREEN_HEIGHT / 5.8
+TILE_WIDTH = SCREEN_HEIGHT / (BOARD_SIZE * 1.18)
+TILE_HEIGHT = SCREEN_HEIGHT / (BOARD_SIZE * 1.18)
 
 WALL_WIDTH = 0.2 * TILE_WIDTH
 WALL_HEIGHT = TILE_WIDTH * 2 + WALL_WIDTH
@@ -54,27 +56,33 @@ def main():
     args = parser.parse_args()
 
     game = Quoridor()
+
     human1 = ManualPygameAgent('Kurumi')
-    human2 = ManualPygameAgent('Cryer')
-    MCTS_Alpha = A_Player(PolicyValueNet(None).policy_value_fn, c_puct=5, n_playout=400, is_selfplay=0)
-    MCTS_Pure = B_Player(c_puct=5, n_playout=50)  #
+
+    Minimax_Player = C_Player(depth=2)
 
     random = RandomAgent()
     randomMove = RandomMoveAgent()
 
     if args.player_type == 1:
         player_types = {1: 'human', 2: 'human'}
+        human2 = ManualPygameAgent('Cryer')
+
         players = {1: human1, 2: human2}
         if args.computer_type == 0:
             pass
     elif args.player_type == 2:
         player_types = {1: 'human', 2: 'computer'}
         if args.computer_type == 1:
+            MCTS_Alpha = A_Player(PolicyValueNet(model_file=None).policy_value_fn, c_puct=5, n_playout=100, is_selfplay=0)
             players = {1: human1, 2: MCTS_Alpha}
         elif args.computer_type == 2:
+            MCTS_Pure = B_Player(c_puct=5, n_playout=50)
             players = {1: human1, 2: MCTS_Pure}
         elif args.computer_type == 3:
             players = {1: human1, 2: randomMove}
+        elif args.computer_type == 4:
+            players = {1: human1, 2: Minimax_Player}
         elif args.computer_type == 0:
             print("Set computer type to 1 or 2 for choosing computer!")
             # pygame.quit()
@@ -128,6 +136,7 @@ def main():
                     if player_moved:
                         real_action = players[game.current_player].choose_action()
                         # move_history.append(real_action)
+
                         game.step(real_action)
                         render(game, screen)  # 渲染游戏
                         break
@@ -155,7 +164,7 @@ def main():
             print("Computer %s thinking..." % str(game.current_player))
             tic = time.time()
             # real_action = np.random.choice(valid_actions)
-            real_action = players[game.current_player].choose_action(game)
+            real_action = players[game.current_player].choose_action(game)[0]
 
             dist1, dist2 = game.get_shortest_path()
             # move_history.append(real_action)
@@ -163,7 +172,9 @@ def main():
             toc = time.time()
             print("Computer's action:", real_action, ", spent %s seconds" % str(toc - tic))
             game.step(real_action)
-            done, winner = game.has_a_winner()
+
+
+        done, winner = game.has_a_winner()
             # render(game, screen)
             # valid_actions = game.valid_actions
         # if game.current_player == 1:

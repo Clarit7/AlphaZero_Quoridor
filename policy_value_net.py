@@ -129,7 +129,7 @@ class PolicyValueNet(object):
         self.optimizer = optim.Adam(self.policy_value_net.parameters(), weight_decay=self.l2_const)
 
         if model_file:
-            self.policy_value_net.load_state_dict(torch.load('ckpt/%s.pth'% model_file))
+            self.policy_value_net.load_state_dict(torch.load(model_file))
 
     def policy_value(self, state_batch):
         """

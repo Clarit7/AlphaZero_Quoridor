@@ -5,11 +5,34 @@ import time
 from collections import deque
 
 import copy
+from graph_tool.all import *
 
 from constant import *
 
 HORIZONTAL = 1
 VERTICAL = -1
+
+
+
+#adjacency_matrix = np.zeros([BOARD_SIZE ** 2, BOARD_SIZE ** 2])
+
+
+#for i in range(BOARD_SIZE ** 2):
+#    left_sided = i % BOARD_SIZE == 0 # left sided
+#    right_sided = i % BOARD_SIZE == BOARD_SIZE - 1 # right sided
+#    upper_sided = i < BOARD_SIZE # upper sided
+#    lower_sided = i >= BOARD_SIZE * (BOARD_SIZE - 1) # lower sided
+
+
+#    if not lower_sided:
+#        adjacency_matrix[i][i+BOARD_SIZE] = 1
+#    if not upper_sided:
+#        adjacency_matrix[i][i-BOARD_SIZE] = 1
+#    if not left_sided:
+#        adjacency_matrix[i][i-1] = 1
+#    if not right_sided:
+#        adjacency_matrix[i][i+1] = 1
+
 
 
 class Quoridor(object):
@@ -23,6 +46,8 @@ class Quoridor(object):
         self.n_players = 2
         self.players = [1, 2]  #
         self.reset()
+
+        #self.adjacency_matrix = copy.deepcopy(adjacency_matrix)
 
     # load player's info (human or computer)
     def load(self, p1, p2):
@@ -184,6 +209,40 @@ class Quoridor(object):
         player2_valid, dist2 = self._bfs_to_goal2(intersections, player2_target, player2_position, player2_position, player=2)
 
         return dist1, dist2
+
+    def improved_shortest_path(self):
+
+        player1_target = 0
+        player2_target = BOARD_SIZE - 1
+
+        player1_position = self._positions[1]
+        player2_position = self._positions[2]
+
+        #G = nx.from_numpy_matrix(self.adjacency_matrix, create_using=nx.DiGraph())
+        G = self.to_graph_tool(self.adjacency_matrix)
+
+        shortest_path  = shortest_distance(G)
+
+        dist1 = np.min([shortest_path[player1_position][i] for i in range(BOARD_SIZE)])
+        dist2 = np.min([shortest_path[player2_position][i] for i in range(BOARD_SIZE*(BOARD_SIZE-1), BOARD_SIZE**2)  ])
+
+        if (dist1 > 100 or dist2 > 100):
+            print(dist1, player1_position, self._intersections)
+            print(dist2, player2_position, self._intersections)
+
+        #player1_valid, dist1 = self._bfs_to_goal2(intersections, player1_target, player1_position, player1_position, player=1)
+        #player2_valid, dist2 = self._bfs_to_goal2(intersections, player2_target, player2_position, player2_position, player=2)
+
+        return dist1, dist2
+
+    def to_graph_tool(self, adj):
+        g = graph_tool.Graph(directed=False)
+        edge_weights = g.new_edge_property('double')
+        g.edge_properties['weight'] = edge_weights
+        nnz = np.nonzero(np.triu(adj,1))
+        nedges = len(nnz[0])
+        g.add_edge_list(np.hstack([np.transpose(nnz),np.reshape(adj[nnz],(nedges,1))]),eprops=[edge_weights])
+        return g
 
 
     def path_to_goal(self, location, player):
@@ -387,12 +446,34 @@ class Quoridor(object):
         # Action values less than 16 are horizontal walls
         if action < (BOARD_SIZE - 1) ** 2:
             self._intersections[action] = 1
+
+
+            #column = action % (BOARD_SIZE-1)
+            #row = action // (BOARD_SIZE -1)
+
+            #self.adjacency_matrix[row * BOARD_SIZE + column][ (row+1) * BOARD_SIZE + column] = 0
+            #self.adjacency_matrix[(row+1) * BOARD_SIZE + column][ row * BOARD_SIZE + column] = 0
+
+            #self.adjacency_matrix[row * BOARD_SIZE + column + 1][ (row+1) * BOARD_SIZE + column + 1] = 0
+            #self.adjacency_matrix[(row+1) * BOARD_SIZE + column + 1][ row * BOARD_SIZE + column + 1] = 0
         # Action values above 16 are vertical walls
         else:
             self._intersections[action - (BOARD_SIZE - 1) ** 2] = -1
 
+
+            #column = (action - (BOARD_SIZE - 1) ** 2) % (BOARD_SIZE-1)
+            #row = (action - (BOARD_SIZE - 1) ** 2) // (BOARD_SIZE -1)
+
+            #self.adjacency_matrix[row * BOARD_SIZE + column][ row * BOARD_SIZE + column + 1] = 0
+            #self.adjacency_matrix[row * BOARD_SIZE + column + 1][ row * BOARD_SIZE + column] = 0
+
+            #self.adjacency_matrix[(row+1) * BOARD_SIZE + column ][ (row+1) * BOARD_SIZE + column + 1] = 0
+            #self.adjacency_matrix[(row+1) * BOARD_SIZE + column + 1][ (row+1) * BOARD_SIZE + column] = 0
+
         self._player_walls_remaining[self.current_player] -= 1
         # self._logger.info(self._intersections)
+
+
 
     def rotate_players(self):
         """Switch the player turn"""
@@ -715,6 +796,48 @@ class Quoridor(object):
 
         return not (player1_valid and player2_valid)
 
+    def improved_blocks_path(self, wall_location, orientation):
+        player1_target = 0
+        player2_target = BOARD_SIZE - 1
+
+        player1_position = self._positions[1]
+        player2_position = self._positions[2]
+
+        adjacency_matrix_clone = self.adjacency_matrix.copy()
+
+
+        column = wall_location % (BOARD_SIZE-1)
+        row = wall_location // (BOARD_SIZE -1)
+
+        if(orientation == HORIZONTAL):
+            adjacency_matrix_clone[row * BOARD_SIZE + column][ (row+1) * BOARD_SIZE + column] = 0
+            adjacency_matrix_clone[(row+1) * BOARD_SIZE + column][ row * BOARD_SIZE + column] = 0
+
+            adjacency_matrix_clone[row * BOARD_SIZE + column + 1][ (row+1) * BOARD_SIZE + column + 1] = 0
+            adjacency_matrix_clone[(row+1) * BOARD_SIZE + column + 1][ row * BOARD_SIZE + column + 1] = 0
+
+        elif(orientation == VERTICAL):
+            adjacency_matrix_clone[row * BOARD_SIZE + column][ row * BOARD_SIZE + column + 1] = 0
+            adjacency_matrix_clone[row * BOARD_SIZE + column + 1][ row * BOARD_SIZE + column] = 0
+
+            adjacency_matrix_clone[(row+1) * BOARD_SIZE + column ][ (row+1) * BOARD_SIZE + column + 1] = 0
+            adjacency_matrix_clone[(row+1) * BOARD_SIZE + column + 1][ (row+1) * BOARD_SIZE + column] = 0
+
+
+        G = self.to_graph_tool(adjacency_matrix_clone)
+
+        shortest_path  = shortest_distance(G)
+
+        player1_valid = min([shortest_path[player1_position][i] for i in range(BOARD_SIZE)])
+        player2_valid = min([shortest_path[player2_position][i] for i in range(BOARD_SIZE*(BOARD_SIZE-1), BOARD_SIZE**2)])
+
+        player1_valid = not (player1_valid > BOARD_SIZE ** 2)
+        player2_valid = not (player2_valid > BOARD_SIZE ** 2)
+
+        return not (player1_valid and player2_valid)
+
+
+
     def _bfs_to_goal(self, intersections, target_row, player_position, opponent_position, player=1):
         visited = []
         invalid_rows = [BOARD_SIZE, -1]
@@ -1003,12 +1126,13 @@ class Quoridor(object):
 
             tic = time.time()
             if self.current_player == 1:
-                move, move_probs, q_vals = alpha_player.choose_action(self)
+                move, move_probs = alpha_player.choose_action(self)
 
                 print("turn %s" % time_step)
-                print('[Move probs]\n', move_probs[:12])
-                print('[Wall probs]\n', move_probs[12:])
-                print("alpha_player chose move : %s, prob: %.3f, q_vals: %.3f" % (move, move_probs[move], q_vals[move]))
+                # print('[Move probs]\n', move_probs[:12])
+                # print('[Wall probs]\n', move_probs[12:])
+                # print("alpha_player chose move : %s, prob: %.3f, q_vals: %.3f" % (move, move_probs[move], q_vals[move]))
+                print("computer_player chose move : {}, prob: {}".format(move, move_probs))
             else:
                 move = pure_player.choose_action(self)
                 print("turn %s" % time_step)
@@ -1021,8 +1145,7 @@ class Quoridor(object):
 
             self.step(move)
 
-            dist1, dist2 = self.get_shortest_path()
-            print("Player 1 Shortest Path: {} Remaining Walls: {}, Player 2 Shortest Path: {} Remaining Walls: {}".format(dist1, self._player_walls_remaining[1],  dist2, self._player_walls_remaining[2] ))
+            print("Player 1 Shortest Path: {} Remaining Walls: {}, Player 2 Shortest Path: {} Remaining Walls: {}".format(self.dist1, self._player_walls_remaining[1],  self.dist2, self._player_walls_remaining[2] ))
 
             self.print_board()
             # if is_shown:
