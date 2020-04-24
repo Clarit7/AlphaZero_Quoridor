@@ -1,4 +1,5 @@
 ckpt/
 runs/
 __pycache__/
+venv/
 loss*
