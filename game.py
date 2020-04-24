@@ -56,7 +56,7 @@ def main():
     game = Quoridor()
     human1 = ManualPygameAgent('Kurumi')
     human2 = ManualPygameAgent('Cryer')
-    MCTS_Alpha = A_Player(PolicyValueNet(None).policy_value_fn, c_puct=5, n_playout=400, is_selfplay=0)
+    MCTS_Alpha = A_Player(PolicyValueNet('model_45_2.116__BOARD_SIZE_5_start_time_04-23-Apr-16-09').policy_value_fn, c_puct=5, n_playout=400, is_selfplay=0)
     MCTS_Pure = B_Player(c_puct=5, n_playout=50)  #
 
     random = RandomAgent()
