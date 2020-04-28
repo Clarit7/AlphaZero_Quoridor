@@ -51,7 +51,175 @@ class TrainPipeline(object):
             self.policy_value_net = PolicyValueNet()
 
         self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
-                                      n_playout=N_PLAYOUT, is_selfplay=True)
+                                      n_playout=N_PLAYOUT, is_selfplay=True, test_condition=True)
+
+    def get_wide_equi_data(self, play_data):
+
+        self.orig_state_hist = deque(maxlen=HISTORY_LEN * 10)
+        self.h_state_hist = deque(maxlen=HISTORY_LEN * 10)
+        self.v_state_hist = deque(maxlen=HISTORY_LEN * 10)
+        self.hv_state_hist = deque(maxlen=HISTORY_LEN * 10)
+
+        extend_data = []
+
+        for i, (state, mcts_prob, winner) in enumerate(play_data):
+
+            state = state[-10:,:,:]
+
+            wall_state = state[:3,:,:]
+            dist_state1 = np.reshape(state[8, :, :], (1, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1))
+            dist_state2 = np.reshape(state[9, :, :], (1, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1))
+
+            # horizontally flipped game
+            flipped_wall_state = []
+
+            for i in range(3):
+                flipped_wall_state.append(np.fliplr(wall_state[i]))
+
+            flipped_wall_state = np.array(flipped_wall_state)
+
+            player_position = state[3:5, :,:]
+
+            flipped_player_position = []
+
+            for i in range(2):
+                flipped_player_position.append(np.fliplr(player_position[i]))
+
+            flipped_player_position = np.array(flipped_player_position)
+
+            h_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[5:, :,:]])
+
+            h_equi_mcts_prob = np.copy(mcts_prob)
+
+            h_equi_mcts_prob[11] = mcts_prob[10]  # SE to SW
+            h_equi_mcts_prob[10] = mcts_prob[11]  # SW to SE
+            h_equi_mcts_prob[9] = mcts_prob[8]    # NE to NW
+            h_equi_mcts_prob[8] = mcts_prob[9]    # NW to NE
+            h_equi_mcts_prob[7] = mcts_prob[6]    # EE to WW
+            h_equi_mcts_prob[6] = mcts_prob[7]    # WW to EE
+            h_equi_mcts_prob[3] = mcts_prob[2]    # E to W
+            h_equi_mcts_prob[2] = mcts_prob[3]    # W to E
+
+            h_wall_actions = h_equi_mcts_prob[12:12 + (BOARD_SIZE-1) ** 2].reshape(BOARD_SIZE-1, BOARD_SIZE-1)
+            v_wall_actions = h_equi_mcts_prob[12 + (BOARD_SIZE-1) ** 2:].reshape(BOARD_SIZE-1, BOARD_SIZE -1)
+
+            flipped_h_wall_actions = np.fliplr(h_wall_actions)
+            flipped_v_wall_actions = np.fliplr(v_wall_actions)
+
+            h_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
+
+            # Vertically flipped game
+            flipped_wall_state = []
+
+            for i in range(3):
+                flipped_wall_state.append(np.flipud(wall_state[i]))
+
+            flipped_wall_state = np.array(flipped_wall_state)
+
+            flipped_player_position = []
+            for i in range(2):
+                flipped_player_position.append(np.flipud(player_position[1-i]))
+
+            flipped_player_position = np.array(flipped_player_position)
+
+            cur_player = (np.ones((BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)) - state[7,:,:]).reshape(-1,BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)
+
+            v_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[6:7, :,:], state[5:6,:,:], cur_player, dist_state2, dist_state1])
+
+
+
+            v_equi_mcts_prob = np.copy(mcts_prob)
+
+            v_equi_mcts_prob[11] = mcts_prob[9]  # SE to NE
+            v_equi_mcts_prob[10] = mcts_prob[8]  # SW to NW
+            v_equi_mcts_prob[9] = mcts_prob[11]  # NE to SE
+            v_equi_mcts_prob[8] = mcts_prob[10]  # NW to SW
+            v_equi_mcts_prob[5] = mcts_prob[4]   # NN to SS
+            v_equi_mcts_prob[4] = mcts_prob[5]   # SS to NN
+            v_equi_mcts_prob[1] = mcts_prob[0]   # N to S
+            v_equi_mcts_prob[0] = mcts_prob[1]   # S to N
+
+            h_wall_actions = v_equi_mcts_prob[12:12 + (BOARD_SIZE-1) ** 2].reshape(BOARD_SIZE-1, BOARD_SIZE-1)
+            v_wall_actions = v_equi_mcts_prob[12 + (BOARD_SIZE-1) ** 2:].reshape(BOARD_SIZE-1, BOARD_SIZE -1)
+
+            flipped_h_wall_actions = np.flipud(h_wall_actions)
+            flipped_v_wall_actions = np.flipud(v_wall_actions)
+
+            v_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
+
+            ## Horizontally-vertically flipped game
+
+            wall_state = state[:3,:,:]
+            flipped_wall_state = []
+
+            for i in range(3):
+                flipped_wall_state.append(np.fliplr(np.flipud(wall_state[i])))
+
+            flipped_wall_state = np.array(flipped_wall_state)
+
+            flipped_player_position = []
+            for i in range(2):
+                flipped_player_position.append(np.fliplr(np.flipud(player_position[1-i])))
+
+            flipped_player_position = np.array(flipped_player_position)
+
+            cur_player = (np.ones((BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)) - state[7,:,:]).reshape(-1,BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)
+
+            hv_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[6:7, :,:], state[5:6,:,:], cur_player, dist_state2, dist_state1])
+
+            hv_equi_mcts_prob = np.copy(mcts_prob)
+
+            hv_equi_mcts_prob[11] = mcts_prob[8]  # SE to NW
+            hv_equi_mcts_prob[10] = mcts_prob[9]  # SW to NE
+            hv_equi_mcts_prob[9] = mcts_prob[10]  # NE to SW
+            hv_equi_mcts_prob[8] = mcts_prob[11]  # NW to SE
+            hv_equi_mcts_prob[7] = mcts_prob[6]   # EE to WW
+            hv_equi_mcts_prob[6] = mcts_prob[7]   # WW to EE
+            hv_equi_mcts_prob[5] = mcts_prob[4]   # NN to SS
+            hv_equi_mcts_prob[4] = mcts_prob[5]   # SS to NN
+            hv_equi_mcts_prob[3] = mcts_prob[2]   # E to W
+            hv_equi_mcts_prob[2] = mcts_prob[3]   # W to E
+            hv_equi_mcts_prob[1] = mcts_prob[0]   # N to S
+            hv_equi_mcts_prob[0] = mcts_prob[1]   # S to N
+
+            h_wall_actions = hv_equi_mcts_prob[12:12 + (BOARD_SIZE-1) ** 2].reshape(BOARD_SIZE-1, BOARD_SIZE-1)
+            v_wall_actions = hv_equi_mcts_prob[12 + (BOARD_SIZE-1) ** 2:].reshape(BOARD_SIZE-1, BOARD_SIZE -1)
+
+            flipped_h_wall_actions = np.fliplr(np.flipud(h_wall_actions))
+            flipped_v_wall_actions = np.fliplr(np.flipud(v_wall_actions))
+
+            hv_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
+
+            ###########
+
+
+            if len(self.orig_state_hist) == 0:
+                for j in range(HISTORY_LEN):
+                    self.orig_state_hist.extend(state)
+                    self.h_state_hist.extend(h_equi_state)
+                    self.v_state_hist.extend(v_equi_state)
+                    self.hv_state_hist.extend(hv_equi_state)
+            else:
+                self.orig_state_hist.extend(state)
+                self.h_state_hist.extend(h_equi_state)
+                self.v_state_hist.extend(v_equi_state)
+                self.hv_state_hist.extend(hv_equi_state)
+
+
+            state = np.vstack([list(self.orig_state_hist)])
+            h_equi_state = np.vstack([list(self.h_state_hist)])
+            v_equi_state = np.vstack([list(self.v_state_hist)])
+            hv_equi_state = np.vstack([list(self.hv_state_hist)])
+
+
+            extend_data.append((state, mcts_prob, winner))
+            extend_data.append((h_equi_state, h_equi_mcts_prob, winner))
+            extend_data.append((v_equi_state, v_equi_mcts_prob, winner * -1))
+            extend_data.append((hv_equi_state, hv_equi_mcts_prob, winner * -1))
+
+
+        return extend_data
+
 
     def get_equi_data(self, play_data):
 
@@ -234,7 +402,7 @@ class TrainPipeline(object):
             play_data = list(play_data)[:]
             self.episode_len = len(play_data)
 
-            play_data = self.get_equi_data(play_data)
+            play_data = self.get_wide_equi_data(play_data)
 
 
             self.data_buffer.extend(play_data)

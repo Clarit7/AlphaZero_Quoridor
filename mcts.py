@@ -208,9 +208,12 @@ class MCTS(object):
 
 class MCTSPlayer(object):
     #
-    def __init__(self, policy_value_function, c_puct=5, n_playout=2000, is_selfplay=1):
+    def __init__(self, policy_value_function, c_puct=5, n_playout=2000, is_selfplay=1, test_condition=False):
         self.mcts = MCTS(policy_value_function, c_puct, n_playout, is_selfplay)
         self._is_selfplay = is_selfplay
+        self._test_condition = test_condition
+        self._scenario = 0
+        self._move70p = 0
 
     #
     def set_player_ind(self, p):
@@ -221,11 +224,10 @@ class MCTSPlayer(object):
         self.mcts.update_with_move(-1, None)
 
     # Choose an action during the play
-    def choose_action(self, game, temp=1e-3, return_prob=True, time_step=0):
+    def choose_action(self, game, temp=1e-3, return_prob=0, time_step=0):
         sensible_moves = game.actions()
         move_probs = np.zeros(12 + (BOARD_SIZE - 1) ** 2 * 2)
         q_vals = np.zeros(12 + (BOARD_SIZE - 1) ** 2 * 2)
-
 
         if len(sensible_moves) > 0:
             acts, probs, q_values = self.mcts.get_move_probs(game, temp, time_step)
@@ -234,14 +236,20 @@ class MCTSPlayer(object):
             state = game.state()
 
             if self._is_selfplay:
-                probs = 0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
-                # print(probs)
-                # move = acts[np.argmax(probs)]
-                move = np.random.choice(acts, p=probs)
+                if self._test_condition and BOARD_SIZE == 5:
+                    move = self.test_action_choose(game, acts, probs, time_step)
+                elif self._test_condition and BOARD_SIZE == 7:
+                    move = self.test_action_choose_7x7(game, acts, probs, time_step)
+                else:
+                    probs = 0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
+                    # move = acts[np.argmax(probs)]
+                    move = np.random.choice(acts, p=probs)
+
                 self.mcts.update_with_move(move, state)
             else:
-                move = acts[np.argmax(probs)]
-                # move = np.random.choice(acts, p=probs)
+                print(probs)
+                # move = acts[np.argmax(probs)]
+                move = np.random.choice(acts, p=probs)
                 self.mcts.update_with_move(-1, state)
 
             if return_prob:
@@ -250,6 +258,171 @@ class MCTSPlayer(object):
                 return move
         else:
             print("WARNING: the board is full")
+
+    def test_action_choose(self, game, acts, probs, time_step):
+
+        # choose force move in early game to prevent overfitting
+        if time_step == 1:
+            self._scenario = np.random.randint(6)
+            self._move70p = np.random.randint(10)
+
+            print("================== Current Game Random Setting Info ===================")
+            if self._scenario == 0:
+                print("Each player move forward in first step (16.7%)")
+            elif self._scenario == 1:
+                print("Player 1 move forward in first step (16.7%)")
+            elif self._scenario == 2:
+                print("Player 2 move forward in first step (16.7%)")
+            else:
+                print("Free move scenario (33.3%)")
+
+            if self._move70p < 3:
+                print("70% prob to choose pawn move (30%)")
+            else:
+                print("Normal move (70%)")
+
+            print("=======================================================================")
+
+        probs = 0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
+
+        if self._scenario == 0 and time_step < 3:  # each player move forward in first step scenario
+            if time_step == 1:
+                move = 0
+            else:
+                move = 1
+        elif self._scenario == 1 and time_step == 1:  # p1 move forward in first step scenario
+            move = 0
+        elif self._scenario == 2 and time_step == 2 and 1 in acts:  # p2 move forward in first step scenario
+            move = 1
+        else:
+            if self._move70p < 3:  # choose pawn move in 70% prob case
+                wall_remain = False
+                for i, v in enumerate(acts):
+                    if v > 11:
+                        if np.random.randint(10) < 7:
+                            pawn_acts = acts[:i]
+                            pawn_probs = softmax(probs[:i])
+                            move = np.random.choice(pawn_acts, p=softmax(pawn_probs))
+                        else:
+                            wall_acts = acts[i:]
+                            wall_probs = softmax(probs[i:])
+                            move = np.random.choice(wall_acts, p=softmax(wall_probs))
+                        wall_remain = True
+                        break
+
+                if not wall_remain:  # if no wall remains, choose action normally(= choose pawn move)
+                    move = np.random.choice(acts, p=probs)
+            else:  # choose action normally
+                move = np.random.choice(acts, p=probs)
+
+        # finish game in pawn jump available situations
+        for act in acts:
+            if 3 < act < 12:
+                gamecopy = copy.deepcopy(game)
+                gamecopy.step(act)
+
+                end, winner = gamecopy.has_a_winner()
+                current_player = gamecopy.get_current_player()
+
+                print(end, winner, current_player)
+
+                if end and winner != current_player:
+                    move = act
+            elif act > 11:
+                break
+
+        return move
+
+    def test_action_choose_7x7(self, game, acts, probs, time_step):
+
+        # choose force move in early game to prevent overfitting
+        if time_step == 1:
+            self._scenario = np.random.randint(10)
+            self._move70p = np.random.randint(10)
+
+            print("================== Current Game Random Setting Info ===================")
+            if self._scenario == 0:
+                print("Each player move forward in first step (10.0%)")
+            elif self._scenario == 1:
+                print("Player 1 move forward in first step (10.0%)")
+            elif self._scenario == 2:
+                print("Player 2 move forward in first step (10.0%)")
+            elif self._scenario == 3:
+                print("Each player move forward until second step (10.0%)")
+            elif self._scenario == 4:
+                print("Player 1 move forward until second step (10.0%)")
+            elif self._scenario == 5:
+                print("Player 2 move forward until second step (10.0%)")
+            else:
+                print("Free move scenario (40.0%)")
+
+            if self._move70p < 3:
+                print("70% prob to choose pawn move (30%)")
+            else:
+                print("Normal move (70%)")
+
+            print("=======================================================================")
+
+        probs = 0.75 * probs + 0.25 * np.random.dirichlet(0.3 * np.ones(len(probs)))
+
+        if self._scenario == 0 and time_step < 3:  # each player move forward in first step scenario
+            if time_step == 1:
+                move = 0
+            else:
+                move = 1
+        elif self._scenario == 1 and time_step == 1:  # p1 move forward in first step scenario
+            move = 0
+        elif self._scenario == 2 and time_step == 2 and 1 in acts:  # p2 move forward in first step scenario
+            move = 1
+        elif self._scenario == 3 and time_step <= 4:  # each player move forward until second step scenario
+            if time_step == 1 or time_step == 3:
+                move = 0
+            else:
+                move = 1
+        elif self._scenario == 4 and (
+                time_step == 1 or time_step == 3) and 0 in acts:  # p1 move forward until second step scenario
+            move = 0
+        elif self._scenario == 5 and (
+                time_step == 2 or time_step == 4) and 1 in acts:  # p2 move forward until second step scenario
+            move = 1
+        else:
+            if self._move70p < 3:  # choose pawn move in 70% prob case
+                wall_remain = False
+                for i, v in enumerate(acts):
+                    if v > 11:
+                        if np.random.randint(10) < 7:
+                            pawn_acts = acts[:i]
+                            pawn_probs = softmax(probs[:i])
+                            move = np.random.choice(pawn_acts, p=softmax(pawn_probs))
+                        else:
+                            wall_acts = acts[i:]
+                            wall_probs = softmax(probs[i:])
+                            move = np.random.choice(wall_acts, p=softmax(wall_probs))
+                        wall_remain = True
+                        break
+
+                if not wall_remain:  # if no wall remains, choose action normally(= choose pawn move)
+                    move = np.random.choice(acts, p=probs)
+            else:  # choose action normally
+                move = np.random.choice(acts, p=probs)
+
+        # finish game in pawn jump available situations
+        for act in acts:
+            if 3 < act < 12:
+                gamecopy = copy.deepcopy(game)
+                gamecopy.step(act)
+
+                end, winner = gamecopy.has_a_winner()
+                current_player = gamecopy.get_current_player()
+
+                print(end, winner, current_player)
+
+                if end and winner != current_player:
+                    move = act
+            elif act > 11:
+                break
+
+        return move
 
     def __str__(self):
         return "MCTS {}".format(self.player)

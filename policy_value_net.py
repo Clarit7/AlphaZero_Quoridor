@@ -79,8 +79,8 @@ class policy_value_net(nn.Module):
         self.conv2 = conv5x5(planes, val_dim, stride)
 
         self.bn2 = nn.BatchNorm2d(val_dim)
-        self.fc1 = nn.Linear(BOARD_SIZE ** 2 * val_dim, BOARD_SIZE ** 2)
-        self.fc2 = nn.Linear(BOARD_SIZE ** 2, 1)
+        self.fc1 = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * val_dim, (BOARD_SIZE * 2 - 1) ** 2)
+        self.fc2 = nn.Linear((BOARD_SIZE * 2 - 1) ** 2, 1)
 
 
         # policy head
@@ -88,7 +88,7 @@ class policy_value_net(nn.Module):
         self.conv3 = conv5x5(planes, pol_dim)
 
         self.bn3 = nn.BatchNorm2d(pol_dim)
-        self.fc3 = nn.Linear(BOARD_SIZE ** 2 * pol_dim, (BOARD_SIZE - 1) ** 2 * 2 + 12)
+        self.fc3 = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * pol_dim, (BOARD_SIZE - 1) ** 2 * 2 + 12)
 
 
     def forward(self,x):
@@ -151,7 +151,7 @@ class PolicyValueNet(object):
         """
         """
         legal_positions = game.actions()  #
-        current_state = np.ascontiguousarray(game.state()).reshape([1, 10 * HISTORY_LEN, BOARD_SIZE, BOARD_SIZE])
+        current_state = np.ascontiguousarray(game.widestate()).reshape([1, 10 * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
         if self.use_gpu:
             # device = torch.device("cuda:0")
 
