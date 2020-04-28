@@ -10,6 +10,7 @@ from policy_value_net import PolicyValueNet
 
 from mcts import MCTSPlayer
 from pure_mcts import MCTSPlayer as MCTSPure
+from minimax import MinimaxPlayer
 
 
 from torch.utils.tensorboard import SummaryWriter
@@ -449,15 +450,13 @@ class TrainPipeline(object):
 
 
 
-    def policy_evaluate(self, n_games=10):
+    def policy_evaluate(self, n_games, player):
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
                                       n_playout=N_PLAYOUT, is_selfplay=False)
 
-        pure_mcts_player = MCTSPure(c_puct=self.c_puct, n_playout=N_MCTS_PLAYOUT)
-
         win_cnt = defaultdict(int)
         for i in range(n_games):
-            winner = self.game.start_test_play(current_mcts_player, pure_mcts_player, is_shown=0, first= i % 2)
+            winner = self.game.start_test_play(current_mcts_player, player, is_shown=0, first= i % 2)
             win_cnt[winner] += 1
             print("{}th evaluation game finished and won {} games out of {} games".format(i, win_cnt[1], n_games))
 
@@ -470,6 +469,17 @@ class TrainPipeline(object):
         try:
 
             # win_ratio = self.policy_evaluate(n_games=1)
+            current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
+                                      n_playout=N_PLAYOUT, is_selfplay=False)
+
+            minimax_player = MinimaxPlayer(depth=2)
+
+
+            win_ratio = self.policy_evaluate(1, current_mcts_player)
+            writer.add_scalar("Win Ratio against pure MCTS", win_ratio, 0)
+            win_ratio = self.policy_evaluate(1, minimax_player)
+            writer.add_scalar("Win Ratio against miniamx player", win_ratio, 0)
+
 
 
             self.collect_selfplay_data(10)
@@ -486,8 +496,10 @@ class TrainPipeline(object):
                     print("current self-play batch: {}".format(i + 1))
                     # win_ratio = self.policy_evaluate()
                     # Add generation to filename
-                    win_ratio = self.policy_evaluate(n_games=5)
+                    win_ratio = self.policy_evaluate(10, current_mcts_player)
                     writer.add_scalar("Win Ratio against pure MCTS", win_ratio, i)
+                    win_ratio = self.policy_evaluate(10, minimax_player)
+                    writer.add_scalar("Win Ratio against miniamx player", win_ratio, i)
 
                     self.policy_value_net.save_model('model_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss)) + "_BOARD_SIZE_" + str(BOARD_SIZE) + "_start_time_" + self.start_time )
         except KeyboardInterrupt:

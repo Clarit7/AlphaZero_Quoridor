@@ -91,7 +91,7 @@ class MinimaxPlayer(object):
         if len(sensible_moves) > 0:
             move, move_value = self.minimax.get_move(game)
             self.minimax.update_with_move(-1)
-            return move, move_value
+            return move
         else:
             print("WARNING: the board is full")
 
