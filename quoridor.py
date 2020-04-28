@@ -368,11 +368,11 @@ class Quoridor(object):
 
         if self._player_waste_move[player] <= 0:
             if len(wall_actions + new_pawn_actions) == 0:
-                return wall_actions + pawn_actions
+                return pawn_actions + wall_actions
 
-            return wall_actions + new_pawn_actions
+            return new_pawn_actions + wall_actions
         else:
-            return wall_actions + pawn_actions
+            return pawn_actions + wall_actions
 
     def step(self, action):
         """Take a step in the environment given the current action"""
