@@ -149,7 +149,7 @@ class MCTSPlayer(object):
         if len(sensible_moves) > 0:
             move = self.mcts.get_move(game)
             self.mcts.update_with_move(-1)
-            return move
+            return move[0]
         else:
             print("WARNING: the board is full")
 

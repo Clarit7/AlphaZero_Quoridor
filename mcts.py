@@ -144,7 +144,7 @@ class MCTS(object):
                 break
 
             action, node = node.select(self._c_puct)
-            game.step(action)  #
+            game.step(action)
         # state = game.state()
 
         action_probs, leaf_value = self._policy(game)

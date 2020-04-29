@@ -87,7 +87,7 @@ def main():
             print("Set computer type to 1 or 2 for choosing computer!")
             # pygame.quit()
 
-    game.load(players[1], players[2])
+    game.load(players[2], players[1])
 
     pygame.init()
 
@@ -164,7 +164,7 @@ def main():
             print("Computer %s thinking..." % str(game.current_player))
             tic = time.time()
             # real_action = np.random.choice(valid_actions)
-            real_action = players[game.current_player].choose_action(game)[0]
+            real_action = players[game.current_player].choose_action(game)
 
             dist1, dist2 = game.get_shortest_path()
             # move_history.append(real_action)

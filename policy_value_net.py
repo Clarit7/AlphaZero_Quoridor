@@ -121,10 +121,10 @@ class PolicyValueNet(object):
         self.l2_const = 1e-4  #
         if self.use_gpu:
             # device = torch.device("cuda:0")
-            self.policy_value_net = policy_value_net(BasicBlock, 10 * HISTORY_LEN,NN_DIM).cuda()
+            self.policy_value_net = policy_value_net(BasicBlock, 2 * HISTORY_LEN,NN_DIM).cuda()
         else:
             # device = torch.device("cpu")
-            self.policy_value_net = policy_value_net(BasicBlock, 10 * HISTORY_LEN,NN_DIM)
+            self.policy_value_net = policy_value_net(BasicBlock, 2 * HISTORY_LEN,NN_DIM)
 
         self.optimizer = optim.Adam(self.policy_value_net.parameters(), weight_decay=self.l2_const)
 
@@ -151,7 +151,8 @@ class PolicyValueNet(object):
         """
         """
         legal_positions = game.actions()  #
-        current_state = np.ascontiguousarray(game.widestate()).reshape([1, 10 * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
+        a = game.simplestate()
+        current_state = np.ascontiguousarray(game.simplestate()).reshape([1, 2 * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
         if self.use_gpu:
             # device = torch.device("cuda:0")
 

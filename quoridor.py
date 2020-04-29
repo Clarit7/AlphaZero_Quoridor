@@ -98,6 +98,44 @@ class Quoridor(object):
 
         self.states = deque(maxlen=HISTORY_LEN * 10)
         self.widestates = deque(maxlen=HISTORY_LEN * 10)
+        self.simplestates = deque(maxlen=HISTORY_LEN * 2)
+
+    def simplestate(self):
+        player1_row = self._positions[1] // BOARD_SIZE * 2
+        player1_col = self._positions[1] % BOARD_SIZE * 2
+        player2_row = self._positions[2] // BOARD_SIZE * 2
+        player2_col = self._positions[2] % BOARD_SIZE * 2
+
+        walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
+        player_pos = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
+
+        i_reshaped = self._intersections.reshape([BOARD_SIZE - 1, BOARD_SIZE - 1])
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
+                if i < BOARD_SIZE - 1 and j < BOARD_SIZE - 1:
+                    if i_reshaped[i][j] == 1:
+                        walls[((i * 2) + 1), (j * 2):((j * 2) + 3)] = 1
+                    elif i_reshaped[i][j] == -1:
+                        walls[(i * 2):((i * 2) + 3), ((j * 2) + 1)] = 1
+
+        player_pos[player1_row, player1_col] = 2
+        player_pos[player2_row, player2_col] = -2
+
+        simplestates = np.stack([
+            walls,
+            player_pos
+        ])
+
+        if len(self.simplestates) == 0:
+            for i in range(HISTORY_LEN):
+                self.simplestates.extend(simplestates)
+        else:
+            self.simplestates.extend(simplestates)
+
+        simplestates = np.vstack([list(self.simplestates)])
+
+        return simplestates
+
 
     def widestate(self):
         """
@@ -118,21 +156,27 @@ class Quoridor(object):
         player2_row = self._positions[2] // BOARD_SIZE * 2
         player2_col = self._positions[2] % BOARD_SIZE * 2
 
-        no_walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
+        no_walls = np.ones([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
         v_walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
         h_walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
         cur_pos = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
         opp_pos = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
 
         i_reshaped = self._intersections.reshape([BOARD_SIZE - 1, BOARD_SIZE - 1])
-        for i in range(BOARD_SIZE - 1):
-            for j in range(BOARD_SIZE - 1):
-                if i_reshaped[i][j] == 1:
-                    h_walls[((i * 2) + 1), (j * 2):((j * 2) + 3)] = 1
-                elif i_reshaped[i][j] == -1:
-                    v_walls[(i * 2):((i * 2) + 3), ((j * 2) + 1)] = 1
+        for i in range(BOARD_SIZE):
+            for j in range(BOARD_SIZE):
+                no_walls[i * 2, j * 2] = 0
+                if i < BOARD_SIZE - 1 and j < BOARD_SIZE - 1:
+                    if i_reshaped[i][j] == 1:
+                        h_walls[((i * 2) + 1), (j * 2):((j * 2) + 3)] = 1
+                    elif i_reshaped[i][j] == -1:
+                        v_walls[(i * 2):((i * 2) + 3), ((j * 2) + 1)] = 1
+                """
                 else:
                     no_walls[((i * 2) + 1), ((j * 2) + 1)] = 1
+                """
+
+        no_walls = no_walls - h_walls - v_walls
 
         cur_pos[player1_row, player1_col] = 1
         opp_pos[player2_row, player2_col] = 1
@@ -1151,7 +1195,7 @@ class Quoridor(object):
             print("player %s chose move : %s, prob: %.3f, q_vals: %.3f, spend: %.2f seconds" % (self.current_player, move, move_probs[move], q_vals[move], (toc-tic)))
             print("player 1 remaining stupid move : %s, player 2 remaining stupid move : %s" %(self._player_waste_move[1], self._player_waste_move[2]))
 
-            states.append(self.widestate())
+            states.append(self.simplestate())
             mcts_probs.append(move_probs)
             current_players.append(self.current_player)
 
@@ -1204,18 +1248,17 @@ class Quoridor(object):
 
             tic = time.time()
             if self.current_player == 1:
-                move, move_probs = alpha_player.choose_action(self)
+                move = alpha_player.choose_action(self)
 
                 print("turn %s" % time_step)
                 # print('[Move probs]\n', move_probs[:12])
                 # print('[Wall probs]\n', move_probs[12:])
                 # print("alpha_player chose move : %s, prob: %.3f, q_vals: %.3f" % (move, move_probs[move], q_vals[move]))
-                print("computer_player chose move : {}, prob: {}".format(move, move_probs))
+                print("first player chose move : {}".format(move))
             else:
                 move = pure_player.choose_action(self)
                 print("turn %s" % time_step)
-                print("pure_player chose move : {}, prob: {}".format(move[0], move[1]._Q))
-                move = move[0]
+                print("second player chose move : {}".format(move))
 
             toc = time.time()
 

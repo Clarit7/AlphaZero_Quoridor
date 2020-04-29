@@ -33,8 +33,8 @@ class TestTrainedAgent(object):
 
         #self.alpha_player = B_Player(c_puct=1, n_playout=self.alpha_playout)
 
-        self.pure_player = B_Player(c_puct=5, n_playout=self.pure_playout)
-        self.alpha_player = C_Player(depth=2)
+        # self.pure_player = B_Player(c_puct=5, n_playout=self.pure_playout)
+        self.pure_player = C_Player(depth=2)
 
         self.alpha_win_total = 0
         self.alpha_win_first = 0
