@@ -155,10 +155,7 @@ class PolicyValueNet(object):
     def policy_value_fn(self, game):
         legal_positions = game.actions()
 
-        if game.get_current_player() == 1:
-            current_state = np.ascontiguousarray(game.widestate2()[0]).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
-        else:
-            current_state = np.ascontiguousarray(game.widestate2(flipped=True)[0]).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
+        current_state = np.ascontiguousarray(game.widestate2()[0]).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
 
         if self.use_gpu:
             log_act_probs, value = self.policy_value_net(Variable(torch.from_numpy(current_state)).cuda().float(), Variable(torch.from_numpy(game.additional_info())).cuda().float().view(1,-1))
@@ -167,27 +164,27 @@ class PolicyValueNet(object):
             log_act_probs, value = self.policy_value_net(Variable(torch.from_numpy(current_state)).float())
             act_probs = np.exp(log_act_probs.data.numpy().flatten())
 
-        if game.get_current_player() == 2:
-            v_equi_mcts_prob = np.copy(act_probs)
+        #if game.get_current_player() == 2:
+        #    v_equi_mcts_prob = np.copy(act_probs)
 
-            v_equi_mcts_prob[11] = act_probs[9]  # SE to NE
-            v_equi_mcts_prob[10] = act_probs[8]  # SW to NW
-            v_equi_mcts_prob[9] = act_probs[11]  # NE to SE
-            v_equi_mcts_prob[8] = act_probs[10]  # NW to SW
-            v_equi_mcts_prob[5] = act_probs[4]   # NN to SS
-            v_equi_mcts_prob[4] = act_probs[5]   # SS to NN
-            v_equi_mcts_prob[1] = act_probs[0]   # N to S
-            v_equi_mcts_prob[0] = act_probs[1]   # S to N
+        #    v_equi_mcts_prob[11] = act_probs[9]  # SE to NE
+        #    v_equi_mcts_prob[10] = act_probs[8]  # SW to NW
+        #    v_equi_mcts_prob[9] = act_probs[11]  # NE to SE
+        #    v_equi_mcts_prob[8] = act_probs[10]  # NW to SW
+        #    v_equi_mcts_prob[5] = act_probs[4]   # NN to SS
+        #    v_equi_mcts_prob[4] = act_probs[5]   # SS to NN
+        #    v_equi_mcts_prob[1] = act_probs[0]   # N to S
+        #    v_equi_mcts_prob[0] = act_probs[1]   # S to N
 
-            h_wall_actions = v_equi_mcts_prob[12:12 + (BOARD_SIZE-1) ** 2].reshape(BOARD_SIZE-1, BOARD_SIZE-1)
-            v_wall_actions = v_equi_mcts_prob[12 + (BOARD_SIZE-1) ** 2:].reshape(BOARD_SIZE-1, BOARD_SIZE -1)
+        #    h_wall_actions = v_equi_mcts_prob[12:12 + (BOARD_SIZE-1) ** 2].reshape(BOARD_SIZE-1, BOARD_SIZE-1)
+        #    v_wall_actions = v_equi_mcts_prob[12 + (BOARD_SIZE-1) ** 2:].reshape(BOARD_SIZE-1, BOARD_SIZE -1)
 
-            flipped_h_wall_actions = np.flipud(h_wall_actions)
-            flipped_v_wall_actions = np.flipud(v_wall_actions)
+        #    flipped_h_wall_actions = np.flipud(h_wall_actions)
+        #    flipped_v_wall_actions = np.flipud(v_wall_actions)
 
-            v_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
+        #    v_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
 
-            act_probs = v_equi_mcts_prob
+        #    act_probs = v_equi_mcts_prob
 
 
         act_probs = zip(legal_positions, act_probs[legal_positions])

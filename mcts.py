@@ -233,6 +233,31 @@ class MCTSPlayer(object):
             acts, probs, q_values = self.mcts.get_move_probs(game, temp, time_step)
             move_probs[list(acts)] = probs
             q_vals[list(acts)] = q_values
+
+            if game.current_player == 2:
+                act_probs = move_probs
+                v_equi_mcts_prob = np.copy(act_probs)
+
+                v_equi_mcts_prob[11] = act_probs[9]  # SE to NE
+                v_equi_mcts_prob[10] = act_probs[8]  # SW to NW
+                v_equi_mcts_prob[9] = act_probs[11]  # NE to S
+                v_equi_mcts_prob[8] = act_probs[10]  # NW to SW
+                v_equi_mcts_prob[5] = act_probs[4]   # NN to SS
+                v_equi_mcts_prob[4] = act_probs[5]   # SS to NN
+                v_equi_mcts_prob[1] = act_probs[0]   # N to S
+                v_equi_mcts_prob[0] = act_probs[1]   # S to N
+
+                h_wall_actions = v_equi_mcts_prob[12:12 + (BOARD_SIZE-1) ** 2].reshape(BOARD_SIZE-1, BOARD_SIZE-1)
+                v_wall_actions = v_equi_mcts_prob[12 + (BOARD_SIZE-1) ** 2:].reshape(BOARD_SIZE-1, BOARD_SIZE -1)
+
+                flipped_h_wall_actions = np.flipud(h_wall_actions)
+                flipped_v_wall_actions = np.flipud(v_wall_actions)
+
+                v_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
+
+                move_probs = v_equi_mcts_prob
+
+
             state = game.state()
 
             if self._is_selfplay:

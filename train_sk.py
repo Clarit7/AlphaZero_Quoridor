@@ -31,9 +31,9 @@ class TrainPipeline(object):
         self.lr_multiplier = 1.0
         self.temp = 1.0
         self.c_puct = 5
-        self.buffer_size = 1000
+        self.buffer_size = 10000
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 1
+        self.play_batch_size = 5
         self.kl_targ = 0.02
         self.check_freq = 10
         self.game_batch_num = 2000
