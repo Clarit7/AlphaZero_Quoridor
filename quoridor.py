@@ -5,7 +5,6 @@ import time
 from collections import deque
 
 import copy
-from graph_tool.all import *
 
 from constant import *
 
@@ -108,6 +107,10 @@ class Quoridor(object):
         0. Walls
         1. The current player position (1) and the opponent position (-1)
         """
+
+        if self.current_player == 2:
+            flipped = True
+
         player1_row = self._positions[1] // BOARD_SIZE * 2
         player1_col = self._positions[1] % BOARD_SIZE * 2
         player2_row = self._positions[2] // BOARD_SIZE * 2
@@ -143,6 +146,7 @@ class Quoridor(object):
 
         if flipped:
             widestates = np.array(widestates[:,::-1,:])
+            widestates[1] = -1 * widestates[1]
 
         return widestates, self.additional_info()
 
