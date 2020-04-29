@@ -93,77 +93,44 @@ class Quoridor(object):
 
         self._player_waste_move = {1: 2, 2: 2}
 
-        self.dist1 = BOARD_SIZE - 1
-        self.dist2 = BOARD_SIZE - 1
+        self.dist = {1: BOARD_SIZE - 1, 2: BOARD_SIZE - 1}
 
-        self.states = deque(maxlen=HISTORY_LEN * 10)
-        self.widestates = deque(maxlen=HISTORY_LEN * 10)
+        self.states = deque(maxlen=HISTORY_LEN * 2)
+        self.widestates = deque(maxlen=HISTORY_LEN * 2)
 
-    def widestate(self):
+    def additional_info(self):
+        return np.array([self._player_walls_remaining[self.current_player], self._player_walls_remaining[3 - self.current_player], self.dist[self.current_player], self.dist[3 - self.current_player] ])
+
+
+    def widestate2(self, flipped=False):
         """
-        Returns a set of 5x5 planes that represent the game state.
-        0. No walls
-        1. Vertical walls
-        2. Horizontal walls
-        3. The current player position
-        4. The opponent position
-        5. Number of walls remaining for current player (if 3walls remain, 5/6/8th are zeros and 7th is ones)
-        6. Number of walls remaining for opponent
-        7. Whose turn it is (0 for player 1, 1 for player 2)
-        8. Distance to goal for player 1
-        9. Distance to goal for player 2
+        Returns a set of 9x9 planes that represent the game state.
+        0. Walls
+        3. The current player position (1) and the opponent position (-1)
         """
         player1_row = self._positions[1] // BOARD_SIZE * 2
         player1_col = self._positions[1] % BOARD_SIZE * 2
         player2_row = self._positions[2] // BOARD_SIZE * 2
         player2_col = self._positions[2] % BOARD_SIZE * 2
 
-        no_walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
-        v_walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
-        h_walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
-        cur_pos = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
-        opp_pos = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
+        walls = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
+        pos = np.zeros([BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1])
 
         i_reshaped = self._intersections.reshape([BOARD_SIZE - 1, BOARD_SIZE - 1])
         for i in range(BOARD_SIZE - 1):
             for j in range(BOARD_SIZE - 1):
                 if i_reshaped[i][j] == 1:
-                    h_walls[((i * 2) + 1), (j * 2):((j * 2) + 3)] = 1
+                    walls[((i * 2) + 1), (j * 2):((j * 2) + 3)] = 1
                 elif i_reshaped[i][j] == -1:
-                    v_walls[(i * 2):((i * 2) + 3), ((j * 2) + 1)] = 1
-                else:
-                    no_walls[((i * 2) + 1), ((j * 2) + 1)] = 1
+                    walls[(i * 2):((i * 2) + 3), ((j * 2) + 1)] = 1
 
-        cur_pos[player1_row, player1_col] = 1
-        opp_pos[player2_row, player2_col] = 1
+        pos[player1_row, player1_col] = 1
+        pos[player2_row, player2_col] = -1
 
-        cur_wall_re = np.full((1, (BOARD_SIZE * 2 - 1), (BOARD_SIZE * 2 - 1)), self._player_walls_remaining[self.current_player])
-        opp_wall_re = np.full((1, (BOARD_SIZE * 2 - 1), (BOARD_SIZE * 2 - 1)),
-                                      self._player_walls_remaining[3 - self.current_player])
-
-        if self.current_player == 1:
-            turn = np.zeros([1, (BOARD_SIZE * 2 - 1), (BOARD_SIZE * 2 - 1)])
-        else:
-            turn = np.ones([1, (BOARD_SIZE * 2 - 1), (BOARD_SIZE * 2 - 1)])
-
-        cur_dist = np.full((1, (BOARD_SIZE * 2 - 1), (BOARD_SIZE * 2 - 1)), self.dist1)
-        opp_dist = np.full((1, (BOARD_SIZE * 2 - 1), (BOARD_SIZE * 2 - 1)), self.dist2)
 
         widestates = np.stack([
-            no_walls,
-            v_walls,
-            h_walls,
-            cur_pos,
-            opp_pos
-        ])
-
-        widestates = np.vstack([
-            widestates,
-            cur_wall_re,
-            opp_wall_re,
-            turn,
-            cur_dist,
-            opp_dist
+            walls,
+            pos
         ])
 
         if len(self.widestates) == 0:
@@ -174,7 +141,11 @@ class Quoridor(object):
 
         widestates = np.vstack([list(self.widestates)])
 
+        if flipped:
+            widestates = widestates[:,::-1,:]
+
         return widestates
+
 
     def state(self):
         """Returns a set of 5x5 planes that represent the game state.
@@ -237,11 +208,11 @@ class Quoridor(object):
 
 
         if self.current_player == 1:
-            dist1_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist1)
-            dist2_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist2)
+            dist1_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist[1])
+            dist2_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist[2])
         else:
-            dist1_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist2)
-            dist2_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist1)
+            dist1_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist[2])
+            dist2_plane = np.full((1, BOARD_SIZE, BOARD_SIZE), self.dist[1])
 
         state = np.stack([
                 no_walls,
@@ -270,6 +241,9 @@ class Quoridor(object):
 
 
         return state
+
+
+
 
 
     def get_shortest_path(self):
@@ -301,17 +275,17 @@ class Quoridor(object):
 
         shortest_path  = shortest_distance(G)
 
-        dist1 = np.min([shortest_path[player1_position][i] for i in range(BOARD_SIZE)])
-        dist2 = np.min([shortest_path[player2_position][i] for i in range(BOARD_SIZE*(BOARD_SIZE-1), BOARD_SIZE**2)  ])
+        dist[1] = np.min([shortest_path[player1_position][i] for i in range(BOARD_SIZE)])
+        dist[2] = np.min([shortest_path[player2_position][i] for i in range(BOARD_SIZE*(BOARD_SIZE-1), BOARD_SIZE**2)  ])
 
-        if (dist1 > 100 or dist2 > 100):
-            print(dist1, player1_position, self._intersections)
-            print(dist2, player2_position, self._intersections)
+        if (dist[1] > 100 or dist2 > 100):
+            print(dist[1], player1_position, self._intersections)
+            print(dist[2], player2_position, self._intersections)
 
         #player1_valid, dist1 = self._bfs_to_goal2(intersections, player1_target, player1_position, player1_position, player=1)
         #player2_valid, dist2 = self._bfs_to_goal2(intersections, player2_target, player2_position, player2_position, player=2)
 
-        return dist1, dist2
+        return dist[1], dist[2]
 
     def to_graph_tool(self, adj):
         g = graph_tool.Graph(directed=False)
@@ -347,7 +321,7 @@ class Quoridor(object):
         pawn_actions = self._valid_pawn_actions(location=location,
                                                 opponent_loc=opponent_loc, walls=walls, player=player)
 
-        cur_dis = self.dist1 if player == 1 else self.dist2
+        cur_dis = self.dist[1] if player == 1 else self.dist[2]
 
         new_pawn_actions = []
         if self._player_waste_move[player] <= 0:
@@ -387,7 +361,7 @@ class Quoridor(object):
                 raise ValueError("Invalid Action: {action}".format(action=action))
 
 
-        cur_dis = self.dist1 if player == 1 else self.dist2
+        cur_dis = self.dist[player]
 
         if action < 12:
             self._handle_pawn_action(action, player)
@@ -395,15 +369,15 @@ class Quoridor(object):
             self._handle_wall_action(action - 12)
 
 
-        self.dist1, self.dist2 = self.get_shortest_path()
+        self.dist[1], self.dist[2] = self.get_shortest_path()
 
-        new_dis = self.dist1 if player == 1 else self.dist2
+        new_dis = self.dist[player]
 
         if new_dis >= cur_dis and action < 12:
             self._player_waste_move[player] -= 1
 
 
-        if self.dist1 == -1 or self.dist2 == -1:
+        if self.dist[1] == -1 or self.dist[2] == -1:
             print("wall action is invalid")
             self.print_board()
             exit(0)
@@ -449,9 +423,9 @@ class Quoridor(object):
             return True, 2
         elif self._positions[1] < BOARD_SIZE:
             return True, 1
-        if self.dist1 - self.dist2 > 1 and self._player_walls_remaining[1] == 0:
+        if self.dist[1] - self.dist[2] > 1 and self._player_walls_remaining[1] == 0:
             return True, 2
-        elif self.dist2 - self.dist1 > 1 and self._player_walls_remaining[2] == 0:
+        elif self.dist[2] - self.dist[1] > 1 and self._player_walls_remaining[2] == 0:
             return True, 1
 
         return game_over, winner
@@ -1151,13 +1125,13 @@ class Quoridor(object):
             print("player %s chose move : %s, prob: %.3f, q_vals: %.3f, spend: %.2f seconds" % (self.current_player, move, move_probs[move], q_vals[move], (toc-tic)))
             print("player 1 remaining stupid move : %s, player 2 remaining stupid move : %s" %(self._player_waste_move[1], self._player_waste_move[2]))
 
-            states.append(self.widestate())
+            states.append(self.widestate2())
             mcts_probs.append(move_probs)
             current_players.append(self.current_player)
 
             self.step(move)
 
-            print("Player 1 Shortest Path: {}, Player 2 Shortest Path: {}".format(self.dist1, self.dist2))
+            print("Player 1 Shortest Path: {}, Player 2 Shortest Path: {}".format(self.dist[1], self.dist[2]))
 
 
             self.print_board()
@@ -1222,7 +1196,7 @@ class Quoridor(object):
 
             self.step(move)
 
-            print("Player 1 Shortest Path: {} Remaining Walls: {}, Player 2 Shortest Path: {} Remaining Walls: {}".format(self.dist1, self._player_walls_remaining[1],  self.dist2, self._player_walls_remaining[2] ))
+            print("Player 1 Shortest Path: {} Remaining Walls: {}, Player 2 Shortest Path: {} Remaining Walls: {}".format(self.dist[1], self._player_walls_remaining[1],  self.dist[2], self._player_walls_remaining[2] ))
 
             self.print_board()
             # if is_shown:

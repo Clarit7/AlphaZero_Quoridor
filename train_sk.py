@@ -56,39 +56,27 @@ class TrainPipeline(object):
 
     def get_wide_equi_data(self, play_data):
 
-        self.orig_state_hist = deque(maxlen=HISTORY_LEN * 10)
-        self.h_state_hist = deque(maxlen=HISTORY_LEN * 10)
-        self.v_state_hist = deque(maxlen=HISTORY_LEN * 10)
-        self.hv_state_hist = deque(maxlen=HISTORY_LEN * 10)
+        self.orig_state_hist = deque(maxlen=HISTORY_LEN * 2)
+        self.h_state_hist = deque(maxlen=HISTORY_LEN * 2)
+        self.v_state_hist = deque(maxlen=HISTORY_LEN * 2)
+        self.hv_state_hist = deque(maxlen=HISTORY_LEN * 2)
 
         extend_data = []
 
         for i, (state, mcts_prob, winner) in enumerate(play_data):
 
-            state = state[-10:,:,:]
+            state = state[-2:,:,:]
 
-            wall_state = state[:3,:,:]
-            dist_state1 = np.reshape(state[8, :, :], (1, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1))
-            dist_state2 = np.reshape(state[9, :, :], (1, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1))
+            wall_state = state[0,:,:]
+            pos_state = state[1,:,:]
 
             # horizontally flipped game
             flipped_wall_state = []
 
-            for i in range(3):
-                flipped_wall_state.append(np.fliplr(wall_state[i]))
+            flipped_wall_state = np.fliplr(wall_state)
+            flipped_pos_state = np.fliplr(pos_state)
 
-            flipped_wall_state = np.array(flipped_wall_state)
-
-            player_position = state[3:5, :,:]
-
-            flipped_player_position = []
-
-            for i in range(2):
-                flipped_player_position.append(np.fliplr(player_position[i]))
-
-            flipped_player_position = np.array(flipped_player_position)
-
-            h_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[5:, :,:]])
+            h_equi_state = np.vstack([flipped_wall_state, flipped_pos_state])
 
             h_equi_mcts_prob = np.copy(mcts_prob)
 
@@ -112,20 +100,11 @@ class TrainPipeline(object):
             # Vertically flipped game
             flipped_wall_state = []
 
-            for i in range(3):
-                flipped_wall_state.append(np.flipud(wall_state[i]))
 
-            flipped_wall_state = np.array(flipped_wall_state)
+            v_flipped_wall_state = np.flipud(wall_state)
+            v_flipped_pos_state = -1 * np.flipud(pos_state)
 
-            flipped_player_position = []
-            for i in range(2):
-                flipped_player_position.append(np.flipud(player_position[1-i]))
-
-            flipped_player_position = np.array(flipped_player_position)
-
-            cur_player = (np.ones((BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)) - state[7,:,:]).reshape(-1,BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)
-
-            v_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[6:7, :,:], state[5:6,:,:], cur_player, dist_state2, dist_state1])
+            v_equi_state = np.vstack([v_flipped_wall_state, v_flipped_pos_state])
 
 
 
@@ -150,23 +129,11 @@ class TrainPipeline(object):
 
             ## Horizontally-vertically flipped game
 
-            wall_state = state[:3,:,:]
-            flipped_wall_state = []
 
-            for i in range(3):
-                flipped_wall_state.append(np.fliplr(np.flipud(wall_state[i])))
+            hv_flipped_wall_state = np.flipud(np.fliplr(wall_state))
+            hv_flipped_pos_state = -1 * np.flipud(np.fliplr(pos_state))
 
-            flipped_wall_state = np.array(flipped_wall_state)
-
-            flipped_player_position = []
-            for i in range(2):
-                flipped_player_position.append(np.fliplr(np.flipud(player_position[1-i])))
-
-            flipped_player_position = np.array(flipped_player_position)
-
-            cur_player = (np.ones((BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)) - state[7,:,:]).reshape(-1,BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1)
-
-            hv_equi_state = np.vstack([flipped_wall_state, flipped_player_position, state[6:7, :,:], state[5:6,:,:], cur_player, dist_state2, dist_state1])
+            hv_equi_state = np.vstack([hv_flipped_wall_state, hv_flipped_pos_state])
 
             hv_equi_mcts_prob = np.copy(mcts_prob)
 
@@ -191,7 +158,6 @@ class TrainPipeline(object):
 
             hv_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
 
-            ###########
 
 
             if len(self.orig_state_hist) == 0:
