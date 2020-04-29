@@ -52,7 +52,7 @@ class TrainPipeline(object):
             self.policy_value_net = PolicyValueNet()
 
         self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
-                                      n_playout=N_PLAYOUT, is_selfplay=True, test_condition=True)
+                                      n_playout=N_PLAYOUT, is_selfplay=True, test_condition=False)
 
     def get_wide_equi_data(self, play_data):
 
@@ -469,13 +469,12 @@ class TrainPipeline(object):
         try:
 
             # win_ratio = self.policy_evaluate(n_games=1)
-            current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
-                                      n_playout=N_PLAYOUT, is_selfplay=False)
+            pure_mcts_player = MCTSPure(c_puct=self.c_puct, n_playout=N_MCTS_PLAYOUT)
 
             minimax_player = MinimaxPlayer(depth=2)
 
 
-            win_ratio = self.policy_evaluate(1, current_mcts_player)
+            win_ratio = self.policy_evaluate(1, pure_mcts_player)
             writer.add_scalar("Win Ratio against pure MCTS", win_ratio, 0)
             win_ratio = self.policy_evaluate(1, minimax_player)
             writer.add_scalar("Win Ratio against miniamx player", win_ratio, 0)
@@ -496,7 +495,7 @@ class TrainPipeline(object):
                     print("current self-play batch: {}".format(i + 1))
                     # win_ratio = self.policy_evaluate()
                     # Add generation to filename
-                    win_ratio = self.policy_evaluate(10, current_mcts_player)
+                    win_ratio = self.policy_evaluate(10, pure_mcts_player)
                     writer.add_scalar("Win Ratio against pure MCTS", win_ratio, i)
                     win_ratio = self.policy_evaluate(10, minimax_player)
                     writer.add_scalar("Win Ratio against miniamx player", win_ratio, i)
