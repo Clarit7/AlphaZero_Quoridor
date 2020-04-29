@@ -18,9 +18,9 @@ def policy_fn(game, depth):
 
     if is_over or depth == 0:
         if player == 1:
-            return best_action, game.dist2 - game.dist1
+            return best_action, game.dist[2] - game.dist[1]
         else:
-            return best_action, game.dist1 - game.dist2
+            return best_action, game.dist[1] - game.dist[2]
 
 
     for action in game.actions():
