@@ -99,7 +99,6 @@ class policy_value_net(nn.Module):
         out = self.layers(out)
 
 
-
         out = out.view(out.shape[0], -1)
 
 
@@ -107,8 +106,7 @@ class policy_value_net(nn.Module):
         out = self.relu(self.fc2(out))
 
 
-
-        out = torch.cat([out,y.repeat(out.shape[0]).view(out.shape[0],-1)], dim=1)
+        out = torch.cat([out,y], dim=1)
 
         # policy head
 
@@ -138,16 +136,19 @@ class PolicyValueNet(object):
         if model_file:
             self.policy_value_net.load_state_dict(torch.load(model_file))
 
-    def policy_value(self, state_batch):
+    def policy_value(self, state_batch, game_info):
+
+
         if self.use_gpu:
             state_batch = Variable(torch.FloatTensor(state_batch).cuda())
-            log_act_probs, value = self.policy_value_net(state_batch)
+            game_info = Variable(torch.FloatTensor(game_info).cuda())
+            log_act_probs, value = self.policy_value_net(state_batch, game_info)
             act_probs = np.exp(log_act_probs.data.cpu().numpy())
             return act_probs, value.data.cpu().numpy()
         else:
             device = torch.device("cpu")
             state_batch = Variable(torch.FloatTensor(state_batch))
-            log_act_probs, value = self.policy_value_net(state_batch)
+            log_act_probs, value = self.policy_value_net(state_batch, game_info)
             act_probs = np.exp(log_act_probs.data.numpy())
             return act_probs, value.data.numpy()
 
@@ -155,12 +156,12 @@ class PolicyValueNet(object):
         legal_positions = game.actions()
 
         if game.get_current_player() == 1:
-            current_state = np.ascontiguousarray(game.widestate2()).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
+            current_state = np.ascontiguousarray(game.widestate2()[0]).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
         else:
-            current_state = np.ascontiguousarray(game.widestate2(flipped=True)).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
+            current_state = np.ascontiguousarray(game.widestate2(flipped=True)[0]).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
 
         if self.use_gpu:
-            log_act_probs, value = self.policy_value_net(Variable(torch.from_numpy(current_state)).cuda().float(), Variable(torch.from_numpy(game.additional_info())).cuda().float())
+            log_act_probs, value = self.policy_value_net(Variable(torch.from_numpy(current_state)).cuda().float(), Variable(torch.from_numpy(game.additional_info())).cuda().float().view(1,-1))
             act_probs = np.exp(log_act_probs.data.cpu().numpy().flatten())
         else:
             log_act_probs, value = self.policy_value_net(Variable(torch.from_numpy(current_state)).float())
@@ -193,10 +194,11 @@ class PolicyValueNet(object):
         value = value.item()
         return act_probs, value
 
-    def train_step(self, state_batch, mcts_probs, winner_batch, lr):
+    def train_step(self, state_batch, game_info, mcts_probs, winner_batch, lr):
         if self.use_gpu:
             # device = torch.device("cuda:0")
             state_batch = Variable(torch.FloatTensor(state_batch).cuda())
+            game_info = Variable(torch.FloatTensor(game_info).cuda())
             mcts_probs = Variable(torch.FloatTensor(mcts_probs).cuda())
             winner_batch = Variable(torch.FloatTensor(winner_batch).cuda())
         else:
@@ -208,7 +210,7 @@ class PolicyValueNet(object):
         self.optimizer.zero_grad()
         set_learning_rate(self.optimizer, lr)
 
-        log_act_probs, value = self.policy_value_net(state_batch)
+        log_act_probs, value = self.policy_value_net(state_batch, game_info)
         value_loss = F.mse_loss(value.view(-1), winner_batch)
 
         policy_loss = -torch.mean(torch.sum(mcts_probs * log_act_probs, 1))

@@ -33,7 +33,7 @@ class TrainPipeline(object):
         self.c_puct = 5
         self.buffer_size = 10000
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 5
+        self.play_batch_size = 1
         self.kl_targ = 0.02
         self.check_freq = 5
         self.game_batch_num = 2000
@@ -65,18 +65,21 @@ class TrainPipeline(object):
 
         for i, (state, mcts_prob, winner) in enumerate(play_data):
 
-            state = state[-2:,:,:]
+            game_info = state[1]
+
+            state = state[0][-2:,:,:]
 
             wall_state = state[0,:,:]
             pos_state = state[1,:,:]
 
             # horizontally flipped game
-            flipped_wall_state = []
 
             flipped_wall_state = np.fliplr(wall_state)
             flipped_pos_state = np.fliplr(pos_state)
 
-            h_equi_state = np.vstack([flipped_wall_state, flipped_pos_state])
+
+            h_equi_state = np.stack([flipped_wall_state, flipped_pos_state])
+
 
             h_equi_mcts_prob = np.copy(mcts_prob)
 
@@ -98,13 +101,12 @@ class TrainPipeline(object):
             h_equi_mcts_prob[12:] = np.hstack([flipped_h_wall_actions.flatten(), flipped_v_wall_actions.flatten()])
 
             # Vertically flipped game
-            flipped_wall_state = []
 
 
             v_flipped_wall_state = np.flipud(wall_state)
             v_flipped_pos_state = -1 * np.flipud(pos_state)
 
-            v_equi_state = np.vstack([v_flipped_wall_state, v_flipped_pos_state])
+            v_equi_state = np.stack([v_flipped_wall_state, v_flipped_pos_state])
 
 
 
@@ -133,7 +135,7 @@ class TrainPipeline(object):
             hv_flipped_wall_state = np.flipud(np.fliplr(wall_state))
             hv_flipped_pos_state = -1 * np.flipud(np.fliplr(pos_state))
 
-            hv_equi_state = np.vstack([hv_flipped_wall_state, hv_flipped_pos_state])
+            hv_equi_state = np.stack([hv_flipped_wall_state, hv_flipped_pos_state])
 
             hv_equi_mcts_prob = np.copy(mcts_prob)
 
@@ -179,10 +181,16 @@ class TrainPipeline(object):
             hv_equi_state = np.vstack([list(self.hv_state_hist)])
 
 
-            extend_data.append((state, mcts_prob, winner))
-            extend_data.append((h_equi_state, h_equi_mcts_prob, winner))
-            extend_data.append((v_equi_state, v_equi_mcts_prob, winner * -1))
-            extend_data.append((hv_equi_state, hv_equi_mcts_prob, winner * -1))
+            flipped_game_info = np.copy(game_info)
+            flipped_game_info[1] = game_info[0]
+            flipped_game_info[0] = game_info[1]
+            flipped_game_info[2] = game_info[3]
+            flipped_game_info[3] = game_info[2]
+
+            extend_data.append((state, game_info, mcts_prob, winner))
+            extend_data.append((h_equi_state, game_info,  h_equi_mcts_prob, winner))
+            extend_data.append((v_equi_state, flipped_game_info, v_equi_mcts_prob, winner * -1))
+            extend_data.append((hv_equi_state, flipped_game_info, hv_equi_mcts_prob, winner * -1))
 
 
         return extend_data
@@ -381,14 +389,16 @@ class TrainPipeline(object):
 
         mini_batch = random.sample(self.data_buffer, BATCH_SIZE)
         state = [data[0] for data in mini_batch]
-        mcts_prob = [data[1] for data in mini_batch]
-        winner = [data[2] for data in mini_batch]
+        game_info = [data[1] for data in mini_batch]
+        mcts_prob = [data[2] for data in mini_batch]
+        winner = [data[3] for data in mini_batch]
 
-        old_probs, old_v = self.policy_value_net.policy_value(state)
+
+        old_probs, old_v = self.policy_value_net.policy_value(state, game_info)
 
         for i in range(NUM_EPOCHS):
-            valloss, polloss, entropy = self.policy_value_net.train_step(state, mcts_prob, winner, self.learn_rate * self.lr_multiplier)
-            self.new_probs, new_v = self.policy_value_net.policy_value(state)
+            valloss, polloss, entropy = self.policy_value_net.train_step(state, game_info, mcts_prob, winner, self.learn_rate * self.lr_multiplier)
+            self.new_probs, new_v = self.policy_value_net.policy_value(state, game_info)
 
             global iter_count
 
@@ -440,11 +450,10 @@ class TrainPipeline(object):
             minimax_player = MinimaxPlayer(depth=2)
 
 
-            win_ratio = self.policy_evaluate(1, pure_mcts_player)
-            writer.add_scalar("Win Ratio against pure MCTS", win_ratio, 0)
-            win_ratio = self.policy_evaluate(1, minimax_player)
-            writer.add_scalar("Win Ratio against miniamx player", win_ratio, 0)
-
+            #win_ratio = self.policy_evaluate(1, pure_mcts_player)
+            #writer.add_scalar("Win Ratio against pure MCTS", win_ratio, 0)
+            #win_ratio = self.policy_evaluate(1, minimax_player)
+            #writer.add_scalar("Win Ratio against miniamx player", win_ratio, 0)
 
 
             self.collect_selfplay_data(10)

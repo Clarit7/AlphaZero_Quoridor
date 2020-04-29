@@ -106,7 +106,7 @@ class Quoridor(object):
         """
         Returns a set of 9x9 planes that represent the game state.
         0. Walls
-        3. The current player position (1) and the opponent position (-1)
+        1. The current player position (1) and the opponent position (-1)
         """
         player1_row = self._positions[1] // BOARD_SIZE * 2
         player1_col = self._positions[1] % BOARD_SIZE * 2
@@ -142,9 +142,9 @@ class Quoridor(object):
         widestates = np.vstack([list(self.widestates)])
 
         if flipped:
-            widestates = widestates[:,::-1,:]
+            widestates = np.array(widestates[:,::-1,:])
 
-        return widestates
+        return widestates, self.additional_info()
 
 
     def state(self):
