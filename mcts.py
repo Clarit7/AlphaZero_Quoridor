@@ -83,7 +83,7 @@ class TreeNode(object):
         max_acts = [act_node for act_node in self._children.items() if act_node[1].get_value(c_puct) == max_value ]
 
         return random.choice(max_acts)
-        #return max(self._children.items(), key=lambda act_node: act_node[1].get_value(c_puct))
+    #return max(self._children.items(), key=lambda act_node: act_node[1].get_value(c_puct))
 
     def update(self, leaf_value):
         """
@@ -157,6 +157,8 @@ class MCTS(object):
                 leaf_value = -1.0 if game.get_current_player == current_player else 1.0
             else:
             """
+
+
             node.expand(action_probs, self._is_selfplay)
         else:
             leaf_value = 1.0 if winner == game.get_current_player() else -1.0  # Fix bug that all winners are current player
@@ -207,7 +209,6 @@ class MCTS(object):
 
 
 class MCTSPlayer(object):
-    #
     def __init__(self, policy_value_function, c_puct=5, n_playout=2000, is_selfplay=1, test_condition=False):
         self.mcts = MCTS(policy_value_function, c_puct, n_playout, is_selfplay)
         self._is_selfplay = is_selfplay
@@ -215,11 +216,9 @@ class MCTSPlayer(object):
         self._scenario = 0
         self._move70p = 0
 
-    #
     def set_player_ind(self, p):
         self.player = p
 
-    #
     def reset_player(self):
         self.mcts.update_with_move(-1, None)
 
@@ -236,6 +235,7 @@ class MCTSPlayer(object):
 
             if game.current_player == 2:
                 act_probs = move_probs
+
                 v_equi_mcts_prob = np.copy(act_probs)
 
                 v_equi_mcts_prob[11] = act_probs[9]  # SE to NE
@@ -246,9 +246,9 @@ class MCTSPlayer(object):
                 v_equi_mcts_prob[4] = act_probs[5]   # SS to NN
                 v_equi_mcts_prob[1] = act_probs[0]   # N to S
                 v_equi_mcts_prob[0] = act_probs[1]   # S to N
-
                 h_wall_actions = v_equi_mcts_prob[12:12 + (BOARD_SIZE-1) ** 2].reshape(BOARD_SIZE-1, BOARD_SIZE-1)
                 v_wall_actions = v_equi_mcts_prob[12 + (BOARD_SIZE-1) ** 2:].reshape(BOARD_SIZE-1, BOARD_SIZE -1)
+
 
                 flipped_h_wall_actions = np.flipud(h_wall_actions)
                 flipped_v_wall_actions = np.flipud(v_wall_actions)
@@ -277,12 +277,43 @@ class MCTSPlayer(object):
                 move = np.random.choice(acts, p=probs)
                 self.mcts.update_with_move(-1, state)
 
+
             if return_prob:
                 return move, move_probs, q_vals
             else:
                 return move
         else:
             print("WARNING: the board is full")
+
+    def get_flipped_action(self, action):
+
+        prob_index = np.array(range((BOARD_SIZE -1 ) ** 2)).reshape(BOARD_SIZE - 1,BOARD_SIZE -1)
+
+        if action == 0:
+            return 1
+        elif action == 1:
+            return 0
+        elif action == 4:
+            return 5
+        elif action == 5:
+            return 4
+        elif action == 8:
+            return 9
+        elif action == 9:
+            return 8
+        elif action == 10:
+            return 11
+        elif action == 11:
+            return 10
+        elif action >= 12 and action < 12 + (BOARD_SIZE - 1) ** 2:
+            return np.flipud(prob_index).flatten()[action - 12] + 12
+        elif action >= 12 + (BOARD_SIZE - 1) ** 2:
+            return np.flipud(prob_index).flatten()[action - 12 - (BOARD_SIZE - 1)**2] + 12 + (BOARD_SIZE - 1)**2
+
+        print("Invalid action")
+
+        return -1
+
 
     def test_action_choose(self, game, acts, probs, time_step):
 
@@ -353,8 +384,8 @@ class MCTSPlayer(object):
 
                 if end and winner != current_player:
                     move = act
-            elif act > 11:
-                break
+                elif act > 11:
+                    break
 
         return move
 
@@ -405,10 +436,10 @@ class MCTSPlayer(object):
             else:
                 move = 1
         elif self._scenario == 4 and (
-                time_step == 1 or time_step == 3) and 0 in acts:  # p1 move forward until second step scenario
+            time_step == 1 or time_step == 3) and 0 in acts:  # p1 move forward until second step scenario
             move = 0
         elif self._scenario == 5 and (
-                time_step == 2 or time_step == 4) and 1 in acts:  # p2 move forward until second step scenario
+            time_step == 2 or time_step == 4) and 1 in acts:  # p2 move forward until second step scenario
             move = 1
         else:
             if self._move70p < 3:  # choose pawn move in 70% prob case
@@ -444,8 +475,8 @@ class MCTSPlayer(object):
 
                 if end and winner != current_player:
                     move = act
-            elif act > 11:
-                break
+                elif act > 11:
+                    break
 
         return move
 

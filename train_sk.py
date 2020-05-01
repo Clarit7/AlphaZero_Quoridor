@@ -31,9 +31,9 @@ class TrainPipeline(object):
         self.lr_multiplier = 1.0
         self.temp = 1.0
         self.c_puct = 5
-        self.buffer_size = 10000
+        self.buffer_size = 2000
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 5
+        self.play_batch_size = 50
         self.kl_targ = 0.02
         self.check_freq = 10
         self.game_batch_num = 2000
@@ -189,8 +189,8 @@ class TrainPipeline(object):
 
             extend_data.append((state, game_info, mcts_prob, winner))
             extend_data.append((h_equi_state, game_info,  h_equi_mcts_prob, winner))
-            extend_data.append((v_equi_state, flipped_game_info, v_equi_mcts_prob, winner * -1))
-            extend_data.append((hv_equi_state, flipped_game_info, hv_equi_mcts_prob, winner * -1))
+            #extend_data.append((v_equi_state, flipped_game_info, v_equi_mcts_prob, winner * -1))
+            #extend_data.append((hv_equi_state, flipped_game_info, hv_equi_mcts_prob, winner * -1))
 
 
         return extend_data
