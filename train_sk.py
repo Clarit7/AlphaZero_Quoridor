@@ -27,7 +27,7 @@ class TrainPipeline(object):
         self.game = Quoridor()
 
 
-        self.learn_rate = 2e-3
+        self.learn_rate = 1e-4
         self.lr_multiplier = 1.0
         self.temp = 1.0
         self.c_puct = 5
@@ -225,6 +225,8 @@ class TrainPipeline(object):
         polloss_acc = 0
         entropy_acc = 0
 
+        acc_count = 0
+
         for i in range(NUM_EPOCHS):
             valloss, polloss, entropy = self.policy_value_net.train_step(state, game_info, mcts_prob, winner, self.learn_rate * self.lr_multiplier)
             self.new_probs, new_v = self.policy_value_net.policy_value(state, game_info)
@@ -237,7 +239,11 @@ class TrainPipeline(object):
             polloss_acc += polloss.item()
             entropy_acc += entropy.item()
 
+            acc_count += 1
+
+
             kl = np.mean(np.sum(old_probs * (np.log(old_probs + 1e-10) - np.log(self.new_probs + 1e-10)), axis=1))
+
             if kl > self.kl_targ * 4:
                 break
 
@@ -248,9 +254,11 @@ class TrainPipeline(object):
             self.lr_multiplier *= 1.5
 
 
-        valloss_acc /= NUM_EPOCHS
-        polloss_acc /= NUM_EPOCHS
-        entropy_acc /= NUM_EPOCHS
+
+        valloss_acc /= acc_count
+        polloss_acc /= acc_count
+        entropy_acc /= acc_count
+
 
 
         writer.add_scalar("Val Loss/train", valloss_acc, iter_count)
@@ -326,5 +334,5 @@ class TrainPipeline(object):
 # Start
 if __name__ == '__main__':
 
-    training_pipeline = TrainPipeline(init_model="ckpt/model_20_0.203__BOARD_SIZE_7_start_time_05-04-May-02-17.pth")
+    training_pipeline = TrainPipeline(init_model=None)
     training_pipeline.run()
