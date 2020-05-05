@@ -33,10 +33,10 @@ class TrainPipeline(object):
         self.c_puct = 5
         self.buffer_size = 2000
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 50
+        self.play_batch_size = 5
         self.kl_targ = 0.02
-        self.check_freq = 10
-        self.game_batch_num = 2000
+        self.check_freq = 100
+        self.game_batch_num = 20000
         self.best_win_ratio = 0.0
         self.start_time = str(time.strftime('%m-%d-%h-%H-%M', time.localtime(time.time())))
 
@@ -221,6 +221,10 @@ class TrainPipeline(object):
 
         old_probs, old_v = self.policy_value_net.policy_value(state, game_info)
 
+        valloss_acc = 0
+        polloss_acc = 0
+        entropy_acc = 0
+
         for i in range(NUM_EPOCHS):
             valloss, polloss, entropy = self.policy_value_net.train_step(state, game_info, mcts_prob, winner, self.learn_rate * self.lr_multiplier)
             self.new_probs, new_v = self.policy_value_net.policy_value(state, game_info)
@@ -228,6 +232,10 @@ class TrainPipeline(object):
             global iter_count
 
             iter_count += 1
+
+            valloss_acc += valloss.item()
+            polloss_acc += polloss.item()
+            entropy_acc += entropy.item()
 
             kl = np.mean(np.sum(old_probs * (np.log(old_probs + 1e-10) - np.log(self.new_probs + 1e-10)), axis=1))
             if kl > self.kl_targ * 4:
@@ -240,20 +248,25 @@ class TrainPipeline(object):
             self.lr_multiplier *= 1.5
 
 
-        writer.add_scalar("Val Loss/train", valloss.item(), iter_count)
-        writer.add_scalar("Policy Loss/train", polloss.item(), iter_count)
-        writer.add_scalar("Entropy/train", entropy.item(), iter_count)
+        valloss_acc /= NUM_EPOCHS
+        polloss_acc /= NUM_EPOCHS
+        entropy_acc /= NUM_EPOCHS
+
+
+        writer.add_scalar("Val Loss/train", valloss_acc, iter_count)
+        writer.add_scalar("Policy Loss/train", polloss_acc, iter_count)
+        writer.add_scalar("Entropy/train", entropy_acc, iter_count)
         writer.add_scalar("LR Multiplier", self.lr_multiplier, iter_count)
-        writer.add_scalar("Total Loss/train", (valloss.item() + polloss.item()), iter_count)
+        writer.add_scalar("Total Loss/train", (valloss_acc + polloss_acc), iter_count)
 
 
-        return valloss.item(), polloss.item(), entropy.item()
+        return valloss_acc, polloss_acc, entropy_acc
 
 
 
     def policy_evaluate(self, n_games, player):
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn, c_puct=self.c_puct,
-                                      n_playout=N_PLAYOUT, is_selfplay=False)
+                                      n_playout=N_TEST_PLAYOUT, is_selfplay=False)
 
         win_cnt = defaultdict(int)
         for i in range(n_games):
@@ -281,6 +294,8 @@ class TrainPipeline(object):
             #writer.add_scalar("Win Ratio against miniamx player", win_ratio, 0)
 
 
+            best_loss = 100
+
             self.collect_selfplay_data(20)
             count = 0
             for i in range(self.game_batch_num):
@@ -295,12 +310,15 @@ class TrainPipeline(object):
                     print("current self-play batch: {}".format(i + 1))
                     # win_ratio = self.policy_evaluate()
                     # Add generation to filename
-                    win_ratio = self.policy_evaluate(5, pure_mcts_player)
+                    win_ratio = self.policy_evaluate(10, pure_mcts_player)
                     writer.add_scalar("Win Ratio against pure MCTS", win_ratio, i)
-                    win_ratio = self.policy_evaluate(5, minimax_player)
+                    win_ratio = self.policy_evaluate(10, minimax_player)
                     writer.add_scalar("Win Ratio against miniamx player", win_ratio, i)
 
-                    self.policy_value_net.save_model('model_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss)) + "_BOARD_SIZE_" + str(BOARD_SIZE) + "_start_time_" + self.start_time )
+
+                    if best_loss > valloss + polloss:
+                        best_loss = valloss + polloss
+                        self.policy_value_net.save_model('model_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss)) + "_BOARD_SIZE_" + str(BOARD_SIZE) + "_start_time_" + self.start_time )
         except KeyboardInterrupt:
             print('\n\rquit')
 
@@ -308,5 +326,5 @@ class TrainPipeline(object):
 # Start
 if __name__ == '__main__':
 
-    training_pipeline = TrainPipeline(init_model=None)
+    training_pipeline = TrainPipeline(init_model="ckpt/model_20_0.203__BOARD_SIZE_7_start_time_05-04-May-02-17.pth")
     training_pipeline.run()

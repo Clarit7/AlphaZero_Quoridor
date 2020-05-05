@@ -74,7 +74,7 @@ def main():
     elif args.player_type == 2:
         player_types = {1: 'human', 2: 'computer'}
         if args.computer_type == 1:
-            MCTS_Alpha = A_Player(PolicyValueNet(model_file=None).policy_value_fn, c_puct=5, n_playout=100, is_selfplay=0)
+            MCTS_Alpha = A_Player(PolicyValueNet(model_file="ckpt/model_122_2.394__BOARD_SIZE_5_start_time_05-03-May-02-21.pth").policy_value_fn, c_puct=5, n_playout=200, is_selfplay=0)
             players = {1: human1, 2: MCTS_Alpha}
         elif args.computer_type == 2:
             MCTS_Pure = B_Player(c_puct=5, n_playout=50)
@@ -164,7 +164,7 @@ def main():
             print("Computer %s thinking..." % str(game.current_player))
             tic = time.time()
             # real_action = np.random.choice(valid_actions)
-            real_action = players[game.current_player].choose_action(game)[0]
+            real_action = players[game.current_player].choose_action(game)
 
             dist1, dist2 = game.get_shortest_path()
             # move_history.append(real_action)
