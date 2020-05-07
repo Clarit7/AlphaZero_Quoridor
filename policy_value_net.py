@@ -128,7 +128,7 @@ class policy_value_net(nn.Module):
         # value head
 
         val_out = self.relu(self.val_bn(self.value_conv(out)))
-        val_out = self.val_fc(torch.cat([val_out.view(val_out.shape[0], -1), y], dim = 1 ))
+        val_out = self.relu(self.val_fc(torch.cat([val_out.view(val_out.shape[0], -1), y], dim = 1 )))
         val_out = self.relu(self.val_fc2(val_out))
 
         val_out = F.tanh(val_out)
