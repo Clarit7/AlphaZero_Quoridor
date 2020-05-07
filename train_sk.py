@@ -33,7 +33,7 @@ class TrainPipeline(object):
         self.c_puct = 5
         self.buffer_size = 2000
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 5
+        self.play_batch_size = 1
         self.kl_targ = 0.02
         self.check_freq = 100
         self.game_batch_num = 20000
@@ -244,8 +244,8 @@ class TrainPipeline(object):
 
             kl = np.mean(np.sum(old_probs * (np.log(old_probs + 1e-10) - np.log(self.new_probs + 1e-10)), axis=1))
 
-            if kl > self.kl_targ * 4:
-                break
+            #if kl > self.kl_targ * 4:
+            #    break
 
 
         if kl > self.kl_targ * 2 and self.lr_multiplier > 0.1:
@@ -266,6 +266,8 @@ class TrainPipeline(object):
         writer.add_scalar("Entropy/train", entropy_acc, iter_count)
         writer.add_scalar("LR Multiplier", self.lr_multiplier, iter_count)
         writer.add_scalar("Total Loss/train", (valloss_acc + polloss_acc), iter_count)
+        writer.add_scalar("Acc count", acc_count, iter_count)
+
 
 
         return valloss_acc, polloss_acc, entropy_acc
