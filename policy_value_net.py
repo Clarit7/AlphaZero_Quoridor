@@ -79,8 +79,8 @@ class policy_value_net(nn.Module):
 
         self.layers = nn.Sequential(*blocks)
 
-        val_dim = 1
-        pol_dim = 2
+        val_dim = 2
+        pol_dim = 4
 
 
         # self.fc1 = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * planes, planes)
@@ -101,7 +101,8 @@ class policy_value_net(nn.Module):
         self.value_conv = conv1x1(planes, val_dim)
         self.val_bn = nn.BatchNorm2d(val_dim)
 
-        self.val_fc = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * val_dim + 4, 1)
+        self.val_fc = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * val_dim + 4, 64)
+        self.val_fc2 = nn.Linear(64, 1)
 
         #self.dropout = nn.Dropout(0.5)
 
@@ -128,8 +129,9 @@ class policy_value_net(nn.Module):
 
         val_out = self.relu(self.val_bn(self.value_conv(out)))
         val_out = self.val_fc(torch.cat([val_out.view(val_out.shape[0], -1), y], dim = 1 ))
+        val_out = self.relu(self.val_fc2(val_out))
 
-        val_out = torch.tanh(val_out)
+        val_out = F.tanh(val_out)
 
 
         return pol_out,val_out
