@@ -79,59 +79,74 @@ class policy_value_net(nn.Module):
 
         self.layers = nn.Sequential(*blocks)
 
-        val_dim = 2
-        pol_dim = 4
+        val_dim = 4
+        pol_dim = 32
 
 
-        # self.fc1 = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * planes, planes)
-        # self.fc2 = nn.Linear(planes, planes)
+        self.fc1 = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * planes, planes)
+        self.fc2 = nn.Linear(planes, planes)
+
+        self.fc3 = nn.Linear(planes + 4, planes // 4)
+        self.pol_fc = nn.Linear(planes // 4, (BOARD_SIZE - 1) ** 2 * 2 + 12)
+        self.val_fc = nn.Linear(planes // 4, 1)
 
 
         # policy head
 
-        self.policy_conv = conv1x1(planes, pol_dim)
-        self.pol_bn = nn.BatchNorm2d(pol_dim)
+        # self.policy_conv = conv1x1(planes, pol_dim)
+        # self.pol_bn = nn.BatchNorm2d(pol_dim)
 
-        self.pol_fc = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * pol_dim + 4, (BOARD_SIZE - 1) ** 2 * 2 + 12)
+        # self.pol_fc = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * pol_dim + 4, (BOARD_SIZE - 1) ** 2 * 2 + 12)
 
 
 
         # value head
 
-        self.value_conv = conv1x1(planes, val_dim)
-        self.val_bn = nn.BatchNorm2d(val_dim)
+        # self.value_conv = conv1x1(planes, val_dim)
+        # self.val_bn = nn.BatchNorm2d(val_dim)
 
-        self.val_fc = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * val_dim + 4, 64)
-        self.val_fc2 = nn.Linear(64, 1)
+        # self.val_fc = nn.Linear((BOARD_SIZE * 2 - 1) ** 2 * val_dim + 4, 64)
+        # self.val_fc2 = nn.Linear(64, 1)
 
-        #self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.5)
 
 
     def forward(self,x, y):
+
+
+        # new_y = y.unsqueeze(2).unsqueeze(2).repeat(1, 1, BOARD_SIZE * 2 -1, BOARD_SIZE * 2 - 1)
+
+        # x = torch.cat([x, new_y], dim=1)
+
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
         out = self.layers(out)
 
 
-        #out = torch.cat([out,y], dim=1)
+        out = out.view(out.shape[0], -1)
+
+        out = self.dropout(self.relu(self.fc2(self.dropout(self.relu(self.fc1(out))))))
+
+        out = self.dropout(self.relu(self.fc3(torch.cat([out,y], dim=1))))
 
         # policy head
 
 
-        pol_out = self.relu(self.pol_bn(self.policy_conv(out)))
-        pol_out = self.pol_fc(torch.cat([pol_out.view(pol_out.shape[0], -1), y ], dim=1 ))
+        #pol_out = self.relu(self.pol_bn(self.policy_conv(out)))
+        #pol_out = self.pol_fc(torch.cat([pol_out.view(pol_out.shape[0], -1), y ], dim=1 ))
 
-        pol_out = F.log_softmax(pol_out, dim = 1)
+
+        pol_out = F.log_softmax(self.pol_fc(out), dim = 1)
 
 
         # value head
 
-        val_out = self.relu(self.val_bn(self.value_conv(out)))
-        val_out = self.relu(self.val_fc(torch.cat([val_out.view(val_out.shape[0], -1), y], dim = 1 )))
-        val_out = self.relu(self.val_fc2(val_out))
+        #val_out = self.relu(self.val_bn(self.value_conv(out)))
+        #val_out = self.relu(self.val_fc(torch.cat([val_out.view(val_out.shape[0], -1), y], dim = 1 )))
+        #val_out = self.val_fc2(val_out)
 
-        val_out = F.tanh(val_out)
+        val_out = F.tanh(self.val_fc(out))
 
 
         return pol_out,val_out
@@ -169,7 +184,7 @@ class PolicyValueNet(object):
     def policy_value_fn(self, game):
         legal_positions = game.actions()
 
-        current_state = np.ascontiguousarray(game.widestate2()[0]).reshape([1, STATE_DIM * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
+        current_state = np.ascontiguousarray(game.widestate2()[0]).reshape([1, (2) * HISTORY_LEN, BOARD_SIZE * 2 - 1, BOARD_SIZE * 2 - 1]) # 1 x (2 * 5) x 9 x 9
 
         if self.use_gpu:
             log_act_probs, value = self.policy_value_net(Variable(torch.from_numpy(current_state)).cuda().float(), Variable(torch.from_numpy(game.additional_info())).cuda().float().view(1,-1))

@@ -7,7 +7,6 @@ import math
 
 
 def policy_fn(game, depth):
-    # return uniform probabilities and 0 score for pure MCTS
 
     player = game.current_player
 
@@ -22,6 +21,7 @@ def policy_fn(game, depth):
         else:
             return best_action, game.dist[1] - game.dist[2]
 
+    best_action = []
 
     for action in game.actions():
         game_copy = copy.deepcopy(game)
@@ -29,15 +29,18 @@ def policy_fn(game, depth):
         _, value = policy_fn(game_copy, depth-1)
         value = -value
         if value > best:
+            best_action = [action]
+
             best = value
-            best_action = action
+        elif value == best:
+            best_action.append(action)
 
     # print("Best action: ", best_action, ", Value: ", best, ", Depth: ", depth)
     # print("Action: ", game.actions())
     # print("Player: ", player, ", P1 dist: ", game.dist1, ", P2 dist: ", game.dist2)
     # print("-" * 12)
 
-    return best_action, best
+    return random.choice(best_action), best
 
 
 class TreeNode(object):
