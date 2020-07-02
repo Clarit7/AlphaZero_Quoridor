@@ -23,18 +23,22 @@ class TestTrainedAgent(object):
         self.temp = 1.0
         self.c_puct = 5
         self.play_batch_size = 1
-        self.alpha_playout = 200
-        self.pure_playout = 200
+        self.alpha_playout = 100
+        self.pure_playout = 100
         self.first = first_player
 
         self.alpha_player = A_Player(PolicyValueNet(model_file=init_model, use_gpu=True).policy_value_fn, c_puct=self.c_puct,
                                      n_playout=self.alpha_playout, is_selfplay=False)
 
+        self.pure_player = A_Player(PolicyValueNet(model_file='ckpt/model_d_80_2.052__BOARD_SIZE_5_start_time_06-02-Jun-15-08.pth', use_gpu=True).policy_value_fn,
+                                     c_puct=self.c_puct,
+                                     n_playout=self.alpha_playout, is_selfplay=False)
+
 
         #self.alpha_player = B_Player(c_puct=1, n_playout=self.alpha_playout)
 
-        self.pure_player = B_Player(c_puct=5, n_playout=self.pure_playout)
-        #self.pure_player = C_Player(depth=1)
+        # self.pure_player = B_Player(c_puct=5, n_playout=self.pure_playout)
+        # self.pure_player = C_Player(depth=2)
 
         self.alpha_win_total = 0
         self.alpha_win_first = 0
@@ -89,6 +93,7 @@ class TestTrainedAgent(object):
 
 
     def test_against_pure(self, n_games=1):
+        """
         for i in range(n_games):
             if self.first == 3:
                 if i % 2 == 0:
@@ -125,6 +130,16 @@ class TestTrainedAgent(object):
             print("alpha zero draw rate in second start : {:.2%}".format(
                 (self.alpha_draw_total - self.alpha_draw_first) / ((i+1) - (i//2 + 1) + 1e-10)))
             print("alpha zero draw rate total : {:.2%}".format(self.alpha_draw_total / (i + 1)))
+        """
+
+        winner = self.game.start_test_play(A_Player(PolicyValueNet(model_file='ckpt/model_d_5_2.767__BOARD_SIZE_5_start_time_06-02-Jun-15-08.pth', use_gpu=True).policy_value_fn,
+                                     c_puct=self.c_puct, n_playout=self.alpha_playout, is_selfplay=False), self.pure_player, temp=self.temp, first=1)
+        print("Winner is Minimax player")
+        print("==============================================")
+        winner = self.game.start_test_play(A_Player(PolicyValueNet(model_file='ckpt/model_d_95_2.127__BOARD_SIZE_5_start_time_06-02-Jun-15-08.pth', use_gpu=True).policy_value_fn,
+                                     c_puct=self.c_puct, n_playout=self.alpha_playout, is_selfplay=False), self.pure_player, temp=self.temp, first=1)
+        print("Winner is AlphaZero player")
+        print("==============================================")
 
     def run(self, epoch_num):
         try:

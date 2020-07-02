@@ -272,7 +272,7 @@ class MCTSPlayer(object):
 
                 self.mcts.update_with_move(move, state)
             else:
-                print(probs)
+                # print(probs)
                 # move = acts[np.argmax(probs)]
                 move = np.random.choice(acts, p=probs)
                 self.mcts.update_with_move(-1, state)

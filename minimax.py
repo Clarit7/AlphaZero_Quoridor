@@ -12,6 +12,7 @@ def policy_fn(game, depth):
     player = game.current_player
 
     best = -math.inf
+    best_actions = []
     best_action = game.actions()[0]
 
     is_over, winner = game.has_a_winner()
@@ -30,7 +31,13 @@ def policy_fn(game, depth):
         value = -value
         if value > best:
             best = value
-            best_action = action
+            best_actions.clear()
+            best_actions.append(action)
+        elif value == best:
+            best_actions.append(action)
+            # best_action = action
+
+    best_action = np.random.choice(np.array(best_actions))
 
     # print("Best action: ", best_action, ", Value: ", best, ", Depth: ", depth)
     # print("Action: ", game.actions())

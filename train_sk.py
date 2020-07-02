@@ -30,13 +30,13 @@ class TrainPipeline(object):
         self.learn_rate = 2e-3
         self.lr_multiplier = 1.0
         self.temp = 1.0
-        self.c_puct = 5
+        self.c_puct = 2
         self.buffer_size = 2000
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 5
+        self.play_batch_size = 10
         self.kl_targ = 0.02
         self.check_freq = 100
-        self.game_batch_num = 20000
+        self.game_batch_num = 10000
         self.best_win_ratio = 0.0
         self.start_time = str(time.strftime('%m-%d-%h-%H-%M', time.localtime(time.time())))
 
@@ -238,9 +238,6 @@ class TrainPipeline(object):
             entropy_acc += entropy.item()
 
             kl = np.mean(np.sum(old_probs * (np.log(old_probs + 1e-10) - np.log(self.new_probs + 1e-10)), axis=1))
-            if kl > self.kl_targ * 4:
-                break
-
 
         if kl > self.kl_targ * 2 and self.lr_multiplier > 0.1:
             self.lr_multiplier /= 1.5
@@ -316,9 +313,7 @@ class TrainPipeline(object):
                     writer.add_scalar("Win Ratio against miniamx player", win_ratio, i)
 
 
-                    if best_loss > valloss + polloss:
-                        best_loss = valloss + polloss
-                        self.policy_value_net.save_model('model_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss)) + "_BOARD_SIZE_" + str(BOARD_SIZE) + "_start_time_" + self.start_time )
+                    self.policy_value_net.save_model('model_d_' + str(count) + '_' + str("%0.3f_" % (valloss+polloss)) + "_BOARD_SIZE_" + str(BOARD_SIZE) + "_start_time_" + self.start_time )
         except KeyboardInterrupt:
             print('\n\rquit')
 
@@ -326,5 +321,5 @@ class TrainPipeline(object):
 # Start
 if __name__ == '__main__':
 
-    training_pipeline = TrainPipeline(init_model="ckpt/model_20_0.203__BOARD_SIZE_7_start_time_05-04-May-02-17.pth")
+    training_pipeline = TrainPipeline(init_model=None)
     training_pipeline.run()
